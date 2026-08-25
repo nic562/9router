@@ -12,6 +12,7 @@ import blackForestLabs from "./blackForestLabs.js";
 import runwayml from "./runwayml.js";
 import cloudflareAi from "./cloudflareAi.js";
 import antigravity from "./antigravity.js";
+import agnesAi from "./agnesAi.js";
 
 const ADAPTERS = {
   openai: createOpenAIAdapter("openai"),
@@ -19,6 +20,7 @@ const ADAPTERS = {
   openrouter: createOpenAIAdapter("openrouter"),
   recraft: createOpenAIAdapter("recraft"),
   "vercel-ai-gateway": createOpenAIAdapter("vercel-ai-gateway"),
+  "agnes-ai": agnesAi,
   xai: createOpenAIAdapter("xai"),
   gemini,
   codex,

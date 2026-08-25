@@ -19,7 +19,24 @@ export function ModelRow({ model, fullModel, copied, onCopy, testStatus, isCusto
           {testStatus === "ok" ? "check_circle" : testStatus === "error" ? "cancel" : "smart_toy"}
         </span>
         <div className="flex flex-col gap-1">
-          <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <code className="text-xs text-text-muted font-mono bg-sidebar px-1.5 py-0.5 rounded">{fullModel}</code>
+            {model.capabilities?.includes("mask") && (
+              <span className="text-[9px] font-semibold text-cyan-500 bg-cyan-500/10 px-1.5 py-0.5 rounded" title="Supports Inpainting (Image + Mask)">
+                INPAINTING
+              </span>
+            )}
+            {model.capabilities?.includes("edit") && (
+              <span className="text-[9px] font-semibold text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded" title="Supports Image-to-Image and Image Editing">
+                IMG2IMG
+              </span>
+            )}
+            {model.capabilities?.includes("multi_image") && (
+              <span className="text-[9px] font-semibold text-purple-500 bg-purple-500/10 px-1.5 py-0.5 rounded" title="Supports Multi-Image Composition">
+                MULTI-IMAGE
+              </span>
+            )}
+          </div>
           {model.name && <span className="text-[9px] text-text-muted/70 italic pl-1">{model.name}</span>}
         </div>
         {onTest && (
@@ -133,7 +150,23 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     } catch (e) { console.log("ModelsCard fetch error:", e); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [aliasRes, customRes] = await Promise.all([
+          fetch("/api/models/alias"),
+          fetch("/api/models/custom", { cache: "no-store" }),
+        ]);
+        const aliasData = await aliasRes.json();
+        const customData = await customRes.json();
+        if (active && aliasRes.ok) setModelAliases(aliasData.aliases || {});
+        if (active && customRes.ok) setCustomModels(customData.models || []);
+      } catch (e) { console.log("ModelsCard fetch error:", e); }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   const handleSetAlias = async (modelId, alias) => {
     const fullModel = `${providerAlias}/${modelId}`;

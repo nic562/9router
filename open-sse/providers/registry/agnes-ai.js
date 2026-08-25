@@ -1,0 +1,68 @@
+export default {
+  id: "agnes-ai",
+  priority: 90,
+  alias: "agnes-ai",
+  aliases: ["agnes"],
+  uiAlias: "agnes",
+  display: {
+    name: "Agnes-AI",
+    icon: "auto_awesome",
+    color: "#6366F1",
+    textIcon: "AG",
+    website: "https://agnes-ai.com",
+    notice: {
+      apiKeyUrl: "https://agnes-ai.com/en/docs/",
+      text: "Agnes-AI multi-modal models: LLM chat, image generation & editing (img2img), and async video generation.",
+    },
+  },
+  category: "apikey",
+  transport: {
+    baseUrl: "https://apihub.agnes-ai.com/v1/chat/completions",
+    validateUrl: "https://apihub.agnes-ai.com/v1/models",
+  },
+  models: [
+    { id: "agnes-2.0-flash", name: "Agnes 2.0 Flash" },
+    { id: "agnes-2.5-flash", name: "Agnes 2.5 Flash" },
+    {
+      id: "agnes-image-2.0-flash",
+      name: "Agnes Image 2.0 Flash",
+      kind: "image",
+      capabilities: ["text2img", "edit", "multi_image"],
+      params: ["size", "image", "extra_body", "return_base64"],
+    },
+    {
+      id: "agnes-image-2.1-flash",
+      name: "Agnes Image 2.1 Flash (High Detail)",
+      kind: "image",
+      capabilities: ["text2img", "edit", "multi_image"],
+      params: ["size", "ratio", "image", "extra_body", "return_base64"],
+    },
+    {
+      id: "agnes-video-v2.0",
+      name: "Agnes Video v2.0",
+      kind: "video",
+      capabilities: ["text2video", "image2video"],
+      params: ["prompt", "image", "duration", "aspect_ratio"],
+    },
+    {
+      id: "agnes-video-2.5-flash",
+      name: "Agnes Video 2.5 Flash",
+      kind: "video",
+      capabilities: ["text2video", "image2video"],
+      params: ["prompt", "image", "duration", "aspect_ratio"],
+    },
+  ],
+  serviceKinds: ["llm", "image", "video", "imageToText"],
+  imageConfig: {
+    baseUrl: "https://apihub.agnes-ai.com/v1/images/generations",
+    workflows: ["Text to Image", "Image to Image (Edit)", "Multi-Image Composition"],
+    sizes: ["1024x1024", "1024x768", "768x1024", "1K", "2K", "3K", "4K"],
+    ratios: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "21:9"],
+    pricingUrl: "https://www.agnes-ai.com/zh-Hans/docs/pricing",
+  },
+  videoConfig: {
+    baseUrl: "https://apihub.agnes-ai.com/v1/videos",
+    workflows: ["Text to Video", "Image to Video"],
+    pricingUrl: "https://www.agnes-ai.com/zh-Hans/docs/pricing",
+  },
+};

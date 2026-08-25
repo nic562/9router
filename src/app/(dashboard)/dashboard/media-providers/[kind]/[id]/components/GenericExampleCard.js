@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -55,7 +56,7 @@ export function GenericExampleCard({ providerId, kind }) {
   );
   const [apiKey, setApiKey] = useState("");
   const [useTunnel, setUseTunnel] = useState(false);
-  const [localEndpoint, setLocalEndpoint] = useState("");
+  const [localEndpoint] = useState(() => typeof window !== "undefined" ? window.location.origin : "");
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState(null); // { stage, bytesReceived }
@@ -70,7 +71,6 @@ export function GenericExampleCard({ providerId, kind }) {
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
@@ -89,8 +89,6 @@ export function GenericExampleCard({ providerId, kind }) {
       .catch(() => {});
   }, [providerId]);
 
-  // Safe to early-return now that all hooks are declared
-  if (!kindConfig || !exConfig) return null;
 
   const endpoint = useTunnel ? tunnelEndpoint : localEndpoint;
   const apiPath = kindConfig.endpoint.path;
@@ -99,9 +97,10 @@ export function GenericExampleCard({ providerId, kind }) {
     ? safeProviderAlias
     : (selectedModel ? `${safeProviderAlias}/${selectedModel}` : (allowManualModel ? "" : safeProviderAlias));
   const imageEditDefaults = getImageEditDefaults(providerId, selectedModel);
-  const effectiveRefImage = refImage.trim() || imageEditDefaults.image || "";
+  const rawRef = refImage.trim() || imageEditDefaults.image || "";
+  const refImagesList = rawRef ? rawRef.split(/[\n,]/).map((s) => s.trim()).filter(Boolean) : [];
+  const effectiveRefImage = refImagesList.length > 1 ? refImagesList : (refImagesList[0] || "");
   const effectiveMaskImage = maskImage.trim() || imageEditDefaults.mask_image || "";
-  const refImagePreviewSrc = toImagePreviewSrc(effectiveRefImage);
   const maskImagePreviewSrc = toImagePreviewSrc(effectiveMaskImage);
 
   // Build request body with optional extra fields (only non-empty values)
@@ -129,7 +128,7 @@ export function GenericExampleCard({ providerId, kind }) {
   ${headersPreview.replace(/\\\n  /g, "\\\n  ")} \\
   -d '${JSON.stringify(requestBody)}'${wantBinary ? " \\\n  --output image.png" : ""}`;
 
-  const handleRun = async () => {
+  async function handleRun() {
     if (!input.trim() || !modelFull) return;
     setRunning(true);
     setError("");
@@ -137,7 +136,7 @@ export function GenericExampleCard({ providerId, kind }) {
     setProgress(null);
     setPartialImage(null);
     if (binaryImageUrl) { try { URL.revokeObjectURL(binaryImageUrl); } catch {} setBinaryImageUrl(""); }
-    const start = Date.now();
+    const start = performance.now();
     try {
       const headers = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
@@ -160,7 +159,7 @@ export function GenericExampleCard({ providerId, kind }) {
         const blob = await res.blob();
         const objUrl = URL.createObjectURL(blob);
         setBinaryImageUrl(objUrl);
-        setResult({ data: { binary: true, mime: ctype, size: blob.size }, latencyMs: Date.now() - start });
+        setResult({ data: { binary: true, mime: ctype, size: blob.size }, latencyMs: Math.round(performance.now() - start) });
         return;
       }
       const isSse = ctype.includes("text/event-stream");
@@ -194,12 +193,12 @@ export function GenericExampleCard({ providerId, kind }) {
             } catch {}
           }
         }
-        const latencyMs = Date.now() - start;
+        const latencyMs = Math.round(performance.now() - start);
         if (streamErr) { setError(streamErr); return; }
         if (finalData) setResult({ data: finalData, latencyMs });
       } else {
         const data = await res.json();
-        const latencyMs = Date.now() - start;
+        const latencyMs = Math.round(performance.now() - start);
         setResult({ data, latencyMs });
       }
     } catch (e) {
@@ -207,7 +206,7 @@ export function GenericExampleCard({ providerId, kind }) {
     } finally {
       setRunning(false);
     }
-  };
+  }
 
   // Mask large b64_json strings in JSON view to keep it readable
   const maskB64 = (obj) => {
@@ -222,6 +221,8 @@ export function GenericExampleCard({ providerId, kind }) {
     return out;
   };
   const resultJson = result ? JSON.stringify(maskB64(result.data), null, 2) : "";
+
+  if (!kindConfig || !exConfig) return null;
 
   return (
     <Card>
@@ -330,7 +331,7 @@ export function GenericExampleCard({ providerId, kind }) {
                 <input
                   value={refImage}
                   onChange={(e) => setRefImage(e.target.value)}
-                  placeholder={imageEditDefaults.image || "https://example.com/source.png"}
+                  placeholder={imageEditDefaults.image || (selectedModelObj?.capabilities?.includes("multi_image") ? "https://example.com/img1.png, https://example.com/img2.png (comma or newline separated)" : "https://example.com/source.png")}
                   className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
                 />
                 {refImage && (
@@ -343,16 +344,28 @@ export function GenericExampleCard({ providerId, kind }) {
                   </button>
                 )}
               </div>
-              {refImagePreviewSrc && (
-                <img
-                  src={refImagePreviewSrc}
-                  alt="Reference"
-                  className="max-h-40 rounded-lg border border-border object-contain bg-sidebar"
-                  onError={(e) => { e.currentTarget.style.display = "none"; }}
-                  onLoad={(e) => { e.currentTarget.style.display = "block"; }}
-                loading="lazy"
-                decoding="async"
-                />
+              {refImagesList.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {refImagesList.map((imgSrc, idx) => {
+                    const src = toImagePreviewSrc(imgSrc);
+                    return src ? (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={src}
+                          alt={`Reference ${idx + 1}`}
+                          className="size-20 rounded-lg border border-border object-cover bg-sidebar"
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          onLoad={(e) => { e.currentTarget.style.display = "block"; }}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span className="absolute bottom-1 right-1 text-[9px] bg-black/60 text-white px-1 rounded font-mono">
+                          #{idx + 1}
+                        </span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
               )}
             </div>
           </Row>

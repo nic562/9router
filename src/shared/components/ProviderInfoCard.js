@@ -15,6 +15,10 @@ const FIELD_SCHEMA = {
   formats:          { label: "Formats",    format: (v) => v.join(", ") },
   maxMaxResults:    { label: "Max results", format: (v) => v },
   maxCharacters:    { label: "Max chars",  format: (v) => v.toLocaleString() },
+  workflows:        { label: "Workflows",  format: (v) => Array.isArray(v) ? v.join(", ") : v },
+  sizes:            { label: "Sizes",      format: (v) => Array.isArray(v) ? v.join(", ") : v },
+  ratios:           { label: "Ratios",     format: (v) => Array.isArray(v) ? v.join(", ") : v },
+  capabilities:     { label: "Capabilities", format: (v) => Array.isArray(v) ? v.join(", ") : v },
 };
 
 export default function ProviderInfoCard({ config, provider, title = "Provider Info" }) {
