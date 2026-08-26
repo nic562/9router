@@ -1,7 +1,11 @@
 /* eslint-disable react-hooks/purity */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
+
+const emptySubscribe = () => () => {};
+const getOrigin = () => typeof window !== "undefined" ? window.location.origin : "";
+const getServerOrigin = () => "";
 import { Card } from "@/shared/components";
 import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
@@ -56,7 +60,7 @@ export function GenericExampleCard({ providerId, kind }) {
   );
   const [apiKey, setApiKey] = useState("");
   const [useTunnel, setUseTunnel] = useState(false);
-  const [localEndpoint] = useState(() => typeof window !== "undefined" ? window.location.origin : "");
+  const localEndpoint = useSyncExternalStore(emptySubscribe, getOrigin, getServerOrigin);
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
   const [result, setResult] = useState(null);
   const [progress, setProgress] = useState(null); // { stage, bytesReceived }
@@ -255,7 +259,7 @@ export function GenericExampleCard({ providerId, kind }) {
         {/* Endpoint */}
         <Row label="Endpoint">
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <span className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm font-mono text-text-main bg-sidebar rounded-lg truncate">
+            <span suppressHydrationWarning className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm font-mono text-text-main bg-sidebar rounded-lg truncate">
               {endpoint}{apiPath}
             </span>
             {tunnelEndpoint && (
@@ -480,7 +484,7 @@ export function GenericExampleCard({ providerId, kind }) {
               </button>
             </div>
           </div>
-          <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
+          <pre suppressHydrationWarning className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
         </div>
 
         {/* Streaming progress */}
