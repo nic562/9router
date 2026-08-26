@@ -80,6 +80,7 @@ export async function handleImageGenerationCore({
 
       return {
         success: true,
+        finalBody,
         response: new Response(JSON.stringify(finalBody), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         }),
@@ -220,6 +221,7 @@ export async function handleImageGenerationCore({
 
   return {
     success: true,
+    finalBody,
     response: new Response(JSON.stringify(finalBody), {
       headers: {
         "Content-Type": "application/json",

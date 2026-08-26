@@ -12,10 +12,53 @@ import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { handleComboChat } from "open-sse/services/combo.js";
+import { saveRequestUsage, saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
 import * as log from "../utils/logger.js";
 
 // Providers that don't require credentials (noAuth)
 const NO_AUTH_PROVIDERS = new Set(["sdwebui", "comfyui"]);
+
+function recordUsageAndDetail({
+  provider,
+  model,
+  connectionId,
+  apiKey,
+  endpoint,
+  status,
+  latencyMs,
+  requestBody,
+  responseData,
+}) {
+  const timestamp = new Date().toISOString();
+
+  saveRequestUsage({
+    provider: provider || "unknown",
+    model: model || "unknown",
+    tokens: { prompt_tokens: 0, completion_tokens: 0 },
+    timestamp,
+    connectionId: connectionId || undefined,
+    apiKey: apiKey || undefined,
+    endpoint: endpoint || "/v1/images/generations",
+    status: status === "success" ? "ok" : "error",
+  }).catch(() => {});
+
+  saveRequestDetail({
+    provider: provider || "unknown",
+    model: model || "unknown",
+    connectionId: connectionId || undefined,
+    timestamp,
+    latency: { total: latencyMs || 0, ttft: latencyMs || 0 },
+    tokens: { prompt_tokens: 0, completion_tokens: 0 },
+    request: requestBody || {},
+    response: responseData || {},
+    endpoint: endpoint || "/v1/images/generations",
+    status: status === "success" ? "success" : "error",
+  }).catch(() => {});
+
+  appendRequestLog(
+    `[IMAGE] ${provider?.toUpperCase() || "UNKNOWN"} | ${model || "unknown"} | ${latencyMs || 0}ms | ${status}`
+  );
+}
 
 /**
  * Handle image generation request
@@ -34,6 +77,7 @@ export async function handleImageGeneration(request) {
   const wantsStream = (request.headers.get("accept") || "").includes("text/event-stream");
   const binaryOutput = url.searchParams.get("response_format") === "binary";
   const modelStr = body.model;
+  const endpoint = url.pathname || "/v1/images/generations";
 
   const apiKey = extractApiKey(request);
   const settings = await getSettings();
@@ -56,7 +100,15 @@ export async function handleImageGeneration(request) {
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelImage(b, m, { wantsStream, binaryOutput, preferredConnectionId }),
+      handleSingleModel: (b, m) =>
+        handleSingleModelImage(b, m, {
+          wantsStream,
+          binaryOutput,
+          preferredConnectionId,
+          apiKey,
+          endpoint,
+          comboName: modelStr,
+        }),
       log,
       comboName: modelStr,
       comboStrategy,
@@ -64,14 +116,26 @@ export async function handleImageGeneration(request) {
     });
   }
 
-  return handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId });
+  return handleSingleModelImage(body, modelStr, {
+    wantsStream,
+    binaryOutput,
+    preferredConnectionId,
+    apiKey,
+    endpoint,
+  });
 }
 
-async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId } = {}) {
+async function handleSingleModelImage(
+  body,
+  modelStr,
+  { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint, comboName } = {}
+) {
+  const reqStartTime = Date.now();
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
+  const recordedModelName = comboName || `${provider}/${model}`;
 
   // noAuth providers — no credential needed
   if (NO_AUTH_PROVIDERS.has(provider)) {
@@ -81,7 +145,32 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
       credentials: null,
       binaryOutput,
     });
-    if (result.success) return result.response;
+    const latencyMs = Date.now() - reqStartTime;
+    if (result.success) {
+      recordUsageAndDetail({
+        provider,
+        model: recordedModelName,
+        connectionId: "noauth",
+        apiKey,
+        endpoint,
+        status: "success",
+        latencyMs,
+        requestBody: body,
+        responseData: result.finalBody || {},
+      });
+      return result.response;
+    }
+    recordUsageAndDetail({
+      provider,
+      model: recordedModelName,
+      connectionId: "noauth",
+      apiKey,
+      endpoint,
+      status: "error",
+      latencyMs,
+      requestBody: body,
+      responseData: { error: result.error || "Image generation failed" },
+    });
     return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "Image generation failed");
   }
 
@@ -89,14 +178,29 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
   const excludeConnectionIds = new Set();
   let lastError = null;
   let lastStatus = null;
+  let lastConnectionId = null;
 
   while (true) {
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
 
     if (!credentials || credentials.allRateLimited) {
+      const latencyMs = Date.now() - reqStartTime;
+      const errorMsg = lastError || credentials?.lastError || "Unavailable";
+      const status = lastStatus || Number(credentials?.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
+
+      recordUsageAndDetail({
+        provider,
+        model: recordedModelName,
+        connectionId: lastConnectionId || credentials?.connectionId,
+        apiKey,
+        endpoint,
+        status: "error",
+        latencyMs,
+        requestBody: body,
+        responseData: { error: errorMsg },
+      });
+
       if (credentials?.allRateLimited) {
-        const errorMsg = lastError || credentials.lastError || "Unavailable";
-        const status = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
         return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
       }
       if (excludeConnectionIds.size === 0) {
@@ -105,6 +209,7 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
+    lastConnectionId = credentials.connectionId;
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
 
     const result = await handleImageGenerationCore({
@@ -118,15 +223,30 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
           accessToken: newCreds.accessToken,
           refreshToken: newCreds.refreshToken,
           providerSpecificData: newCreds.providerSpecificData,
-          testStatus: "active"
+          testStatus: "active",
         });
       },
       onRequestSuccess: async () => {
         await clearAccountError(credentials.connectionId, credentials, model);
-      }
+      },
     });
 
-    if (result.success) return result.response;
+    const latencyMs = Date.now() - reqStartTime;
+
+    if (result.success) {
+      recordUsageAndDetail({
+        provider,
+        model: recordedModelName,
+        connectionId: credentials.connectionId,
+        apiKey,
+        endpoint,
+        status: "success",
+        latencyMs,
+        requestBody: body,
+        responseData: result.finalBody || {},
+      });
+      return result.response;
+    }
 
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model);
 
@@ -136,6 +256,18 @@ async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutpu
       lastStatus = result.status;
       continue;
     }
+
+    recordUsageAndDetail({
+      provider,
+      model: recordedModelName,
+      connectionId: credentials.connectionId,
+      apiKey,
+      endpoint,
+      status: "error",
+      latencyMs,
+      requestBody: body,
+      responseData: { error: result.error },
+    });
 
     return result.response;
   }

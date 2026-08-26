@@ -12,6 +12,7 @@ import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import * as log from "../utils/logger.js";
+import { saveRequestUsage, saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
 
 // Video generation is xAI-only today; requests without a provider prefix
 // (bare model id, or multipart bodies we deliberately don't parse) land here.
@@ -155,6 +156,31 @@ export async function handleVideoCreate(request, action) {
     if (result.success) {
       await clearAccountError(credentials.connectionId, credentials, model);
       log.info("VIDEO", `${provider.toUpperCase()} | ${action} accepted (connection ${credentials.connectionId})`);
+      const timestamp = new Date().toISOString();
+      const modelStr = model ? `${provider}/${model}` : provider;
+      saveRequestUsage({
+        provider,
+        model: modelStr,
+        tokens: { prompt_tokens: 0, completion_tokens: 0 },
+        timestamp,
+        connectionId: credentials.connectionId,
+        apiKey: apiKey || undefined,
+        endpoint: `/v1/videos/${action}`,
+        status: "ok",
+      }).catch(() => {});
+      saveRequestDetail({
+        provider,
+        model: modelStr,
+        connectionId: credentials.connectionId,
+        timestamp,
+        latency: { total: 0, ttft: 0 },
+        tokens: { prompt_tokens: 0, completion_tokens: 0 },
+        request: bodyInfo.parsed || {},
+        response: { status: "accepted" },
+        endpoint: `/v1/videos/${action}`,
+        status: "success",
+      }).catch(() => {});
+      appendRequestLog(`[VIDEO] ${provider.toUpperCase()} | ${modelStr} | ${action} | success`);
       return withConnectionHeader(result.response, credentials.connectionId);
     }
 
