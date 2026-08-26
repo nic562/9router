@@ -194,7 +194,6 @@ export default function MediaProviderDetailPage() {
       {!isCustom && (kind === "image" || kind === "video") && (
         <ApiDocSection
           providerId={id}
-          selectedModelId={getModelsByProviderId(id).find((m) => getModelKind(m) === kind)?.id}
           kind={kind}
         />
       )}

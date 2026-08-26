@@ -14,6 +14,29 @@ const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
+// Non-chat endpoint prefixes (image, video, search, fetch, audio, embeddings)
+const NON_CHAT_ENDPOINTS = ["/v1/images", "/v1/videos", "/v1/audio", "/v1/embeddings", "/api/v1/search", "/api/v1/fetch", "/v1/web"];
+
+function isNonChatEndpoint(endpoint) {
+  if (!endpoint || typeof endpoint !== "string") return false;
+  return NON_CHAT_ENDPOINTS.some((prefix) => endpoint.startsWith(prefix));
+}
+
+function shouldFilterRecentRequest(entry) {
+  if (!entry.model && !entry.provider) return true;
+  // Non-OK / failed requests are not shown in Overview recent list
+  const isOk = !entry.status || entry.status === "ok" || entry.status === "success";
+  if (!isOk) return true;
+
+  // For chat/LLM requests, filter out 0-token empty/failed artifacts.
+  // For media/non-chat requests (images, videos, search, fetch), preserve them even with 0 tokens.
+  const isChat = !isNonChatEndpoint(entry.endpoint);
+  if (isChat && (entry.promptTokens === 0 && entry.completionTokens === 0)) {
+    return true;
+  }
+  return false;
+}
+
 // In-memory state shared across Next.js modules
 if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
 if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
@@ -163,9 +186,6 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
     pendingRequests.byAccount[connectionId][modelKey] = Math.max(0, pendingRequests.byAccount[connectionId][modelKey] + (started ? 1 : -1));
     if (pendingRequests.byAccount[connectionId][modelKey] === 0) {
       delete pendingRequests.byAccount[connectionId][modelKey];
-      if (Object.keys(pendingRequests.byAccount[connectionId]).length === 0) {
-        delete pendingRequests.byAccount[connectionId];
-      }
     }
   }
 
@@ -219,15 +239,16 @@ export async function getActiveRequests() {
       const t = e.tokens || {};
       return {
         timestamp: e.timestamp, model: e.model, provider: e.provider || "",
+        endpoint: e.endpoint || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         status: e.status || "ok",
       };
     })
     .filter((e) => {
-      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
+      if (shouldFilterRecentRequest(e)) return false;
       const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
-      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
+      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}|${e.timestamp}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -327,20 +348,25 @@ export async function getUsageHistory(filter = {}) {
   const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ${where} ORDER BY id ASC`, params);
 
   return rows.map((r) => ({
-    timestamp: r.timestamp, provider: r.provider, model: r.model,
-    connectionId: r.connectionId, apiKeyMasked: maskApiKey(r.apiKey), endpoint: r.endpoint,
-    cost: r.cost, status: r.status, tokens: parseJson(r.tokens, {}),
+    timestamp: r.timestamp,
+    provider: r.provider,
+    model: r.model,
+    connectionId: r.connectionId,
+    apiKey: r.apiKey,
+    endpoint: r.endpoint,
+    cost: r.cost,
+    status: r.status,
+    tokens: parseJson(r.tokens, {}),
   }));
 }
 
-function loadDaysInRange(adapter, maxDays) {
-  if (maxDays == null) {
-    return adapter.all(`SELECT dateKey, data FROM usageDaily`);
+function loadDaysInRange(db, maxDays) {
+  if (maxDays) {
+    const cutoffDate = new Date(Date.now() - (maxDays - 1) * 86400000);
+    const minKey = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-${String(cutoffDate.getDate()).padStart(2, "0")}`;
+    return db.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ? ORDER BY dateKey ASC`, [minKey]);
   }
-  const today = new Date();
-  const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
-  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
+  return db.all(`SELECT dateKey, data FROM usageDaily ORDER BY dateKey ASC`);
 }
 
 export async function getUsageStats(period = "all") {
@@ -369,13 +395,14 @@ export async function getUsageStats(period = "all") {
   for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
   // recentRequests from live history (last 100 entries enough for 20 deduped)
-  const recentRows = db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
+  const recentRows = db.all(`SELECT timestamp, provider, model, endpoint, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
   const seen = new Set();
   const recentRequests = recentRows
     .map((r) => {
       const t = parseJson(r.tokens, {}) || {};
       return {
         timestamp: r.timestamp, model: r.model, provider: r.provider || "",
+        endpoint: r.endpoint || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
@@ -383,9 +410,9 @@ export async function getUsageStats(period = "all") {
       };
     })
     .filter((e) => {
-      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
+      if (shouldFilterRecentRequest(e)) return false;
       const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
-      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
+      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}|${e.timestamp}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;

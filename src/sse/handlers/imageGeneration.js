@@ -107,7 +107,6 @@ export async function handleImageGeneration(request) {
           preferredConnectionId,
           apiKey,
           endpoint,
-          comboName: modelStr,
         }),
       log,
       comboName: modelStr,
@@ -128,14 +127,14 @@ export async function handleImageGeneration(request) {
 async function handleSingleModelImage(
   body,
   modelStr,
-  { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint, comboName } = {}
+  { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint } = {}
 ) {
   const reqStartTime = Date.now();
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
-  const recordedModelName = comboName || `${provider}/${model}`;
+  const recordedModelName = model || modelStr;
 
   // noAuth providers — no credential needed
   if (NO_AUTH_PROVIDERS.has(provider)) {

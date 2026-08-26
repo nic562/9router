@@ -4,7 +4,7 @@ import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
 const DEFAULT_FLUSH_INTERVAL_MS = 5000;
-const DEFAULT_MAX_JSON_SIZE = 5 * 1024;
+const DEFAULT_MAX_JSON_SIZE = 512 * 1024; // 512 KB per JSON payload
 const CONFIG_CACHE_TTL_MS = 5000;
 
 let cachedConfig = null;
@@ -15,35 +15,24 @@ async function getObservabilityConfig() {
   try {
     const { getSettings } = await import("./settingsRepo.js");
     const settings = await getSettings();
-    const envRequestLogs = process.env.ENABLE_REQUEST_LOGS;
-    if (envRequestLogs !== undefined) {
-      const enabled = envRequestLogs.toLowerCase() === "true";
-      cachedConfig = {
-        enabled,
-        maxRecords: settings.observabilityMaxRecords || parseInt(process.env.OBSERVABILITY_MAX_RECORDS || String(DEFAULT_MAX_RECORDS), 10),
-        batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
-        flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
-        maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
-      };
-      cachedConfigTs = Date.now();
-      return cachedConfig;
-    }
-    const envFallback = process.env.OBSERVABILITY_ENABLED !== "false";
+    const envObservability = process.env.OBSERVABILITY_ENABLED;
     const uiFlag = typeof settings.enableObservability === "boolean";
     const enabled = uiFlag
       ? settings.enableObservability
-      : envFallback;
+      : (envObservability !== undefined ? envObservability.toLowerCase() === "true" : true);
+
+    const configuredKb = settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "512", 10);
 
     cachedConfig = {
       enabled,
       maxRecords: settings.observabilityMaxRecords || parseInt(process.env.OBSERVABILITY_MAX_RECORDS || String(DEFAULT_MAX_RECORDS), 10),
       batchSize: settings.observabilityBatchSize || parseInt(process.env.OBSERVABILITY_BATCH_SIZE || String(DEFAULT_BATCH_SIZE), 10),
       flushIntervalMs: settings.observabilityFlushIntervalMs || parseInt(process.env.OBSERVABILITY_FLUSH_INTERVAL_MS || String(DEFAULT_FLUSH_INTERVAL_MS), 10),
-      maxJsonSize: (settings.observabilityMaxJsonSize || parseInt(process.env.OBSERVABILITY_MAX_JSON_SIZE || "5", 10)) * 1024,
+      maxJsonSize: Math.max(512 * 1024, (configuredKb || 512) * 1024),
     };
   } catch {
     cachedConfig = {
-      enabled: false,
+      enabled: true,
       maxRecords: DEFAULT_MAX_RECORDS,
       batchSize: DEFAULT_BATCH_SIZE,
       flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
@@ -78,11 +67,52 @@ function generateDetailId(model) {
 }
 
 function truncateField(obj, maxSize) {
-  const str = JSON.stringify(obj || {});
-  if (str.length > maxSize) {
-    return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 200) };
-  }
-  return obj || {};
+  if (!obj) return obj || {};
+  
+  // Cleanly sanitize oversized base64 inline images if needed while preserving prompt structure
+  let sanitizedObj = obj;
+  try {
+    const str = JSON.stringify(obj);
+    if (str.length > maxSize) {
+      // If object has prompt and image/images, truncate heavy base64 while keeping user prompt
+      if (typeof obj === "object" && obj !== null) {
+        const cloned = { ...obj };
+        if (typeof cloned.image === "string" && cloned.image.startsWith("data:image")) {
+          cloned.image = `${cloned.image.slice(0, 60)}... [Base64 Image truncated, length: ${cloned.image.length}]`;
+        }
+        if (Array.isArray(cloned.image)) {
+          cloned.image = cloned.image.map((img) =>
+            typeof img === "string" && img.startsWith("data:image")
+              ? `${img.slice(0, 60)}... [Base64 Image truncated, length: ${img.length}]`
+              : img
+          );
+        }
+        if (Array.isArray(cloned.extra_body?.image)) {
+          cloned.extra_body = {
+            ...cloned.extra_body,
+            image: cloned.extra_body.image.map((img) =>
+              typeof img === "string" && img.startsWith("data:image")
+                ? `${img.slice(0, 60)}... [Base64 Image truncated, length: ${img.length}]`
+                : img
+            ),
+          };
+        }
+        const newStr = JSON.stringify(cloned);
+        if (newStr.length <= maxSize) {
+          return cloned;
+        }
+        return {
+          _truncated: true,
+          _originalSize: str.length,
+          prompt: obj.prompt || obj.messages || undefined,
+          model: obj.model || undefined,
+          _preview: str.substring(0, 2000),
+        };
+      }
+      return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 2000) };
+    }
+  } catch {}
+  return sanitizedObj;
 }
 
 async function flushToDatabase() {
@@ -160,6 +190,9 @@ export async function saveRequestDetail(detail) {
 }
 
 export async function getRequestDetails(filter = {}) {
+  if (writeBuffer.length > 0) {
+    await flushToDatabase().catch(() => {});
+  }
   const db = await getAdapter();
   const conds = [];
   const params = [];

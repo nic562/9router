@@ -155,12 +155,50 @@ export default function RequestDetailsTab() {
   }, [pagination.page, pagination.pageSize, filters]);
 
   useEffect(() => {
-    fetchProviders();
-  }, [fetchProviders]);
+    let active = true;
+    const init = async () => {
+      try {
+        const res = await fetch("/api/usage/providers");
+        const data = await res.json();
+        if (active) setProviders(data.providers || []);
+        const cache = await fetchProviderNames();
+        if (active) setProviderNameCache(cache.providerNameCache);
+      } catch (e) {
+        console.error("Failed to fetch providers:", e);
+      }
+    };
+    init();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
-    fetchDetails();
-  }, [fetchDetails]);
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: pagination.page.toString(),
+          pageSize: pagination.pageSize.toString()
+        });
+        if (filters.provider) params.append("provider", filters.provider);
+        if (filters.startDate) params.append("startDate", filters.startDate);
+        if (filters.endDate) params.append("endDate", filters.endDate);
+
+        const res = await fetch(`/api/usage/request-details?${params}`);
+        const data = await res.json();
+        if (active) {
+          setDetails(data.details || []);
+          setPagination(prev => ({ ...prev, ...data.pagination }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch request details:", e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [pagination.page, pagination.pageSize, filters]);
 
   const handleViewDetail = (detail) => {
     setSelectedDetail(detail);
@@ -497,8 +535,19 @@ export default function RequestDetailsTab() {
                 <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
                   Content
                 </h4>
+                {selectedDetail.response?.data?.[0] && (
+                  <div className="mb-3">
+                    <img
+                      src={selectedDetail.response.data[0].url || (selectedDetail.response.data[0].b64_json ? `data:image/png;base64,${selectedDetail.response.data[0].b64_json}` : "")}
+                      alt="Generated output"
+                      className="max-h-48 rounded-lg border border-border object-contain bg-sidebar"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                )}
                 <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                  {selectedDetail.response?.content || "[No content]"}
+                  {selectedDetail.response?.content || (typeof selectedDetail.response === "object" ? JSON.stringify(selectedDetail.response, null, 2) : selectedDetail.response) || "[No content]"}
                 </pre>
               </CollapsibleSection>
             </div>
