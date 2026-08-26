@@ -11,8 +11,9 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
     if (providerId === "agnes-ai") {
       const is21 = selectedModelId === "agnes-image-2.1-flash";
       return {
-        title: "Agnes-AI Image API Reference",
-        description: "Standard OpenAI-compatible JSON interface. 9Router automatically transforms top-level parameters into Agnes-AI's upstream structure (e.g. extra_body.image and extra_body.response_format) to ensure 100% reliable calls without 422 errors.",
+        title: "Agnes-AI 图像生成接口文档 (API Reference)",
+        subtitle: "POST /v1/images/generations",
+        description: "标准 OpenAI 兼容生图接口。9Router 会自动将顶层的图片、格式等参数规范化为 Agnes-AI 上游要求的 extra_body 结构（如 extra_body.image 和 extra_body.response_format），防止 422 报错，确保任何客户端都能开箱即用。",
         endpoint: "/v1/images/generations",
         method: "POST",
         parameters: [
@@ -21,19 +22,19 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             type: "string",
             required: true,
             default: selectedModelId || "agnes-ai/agnes-image-2.0-flash",
-            desc: "Model name, e.g. agnes-ai/agnes-image-2.0-flash or agnes-ai/agnes-image-2.1-flash",
+            desc: "模型名称。例如 agnes-ai/agnes-image-2.0-flash 或 agnes-ai/agnes-image-2.1-flash",
           },
           {
             name: "prompt",
             type: "string",
             required: true,
-            desc: "Text description of the desired image or image editing instruction.",
+            desc: "生图提示词或图像编辑指令。",
           },
           {
             name: "image",
             type: "string | string[]",
             required: false,
-            desc: "Reference image(s) for Image-to-Image or Multi-Image composition. Supports public HTTPS URLs or Data URI Base64 ('data:image/png;base64,...'). 9Router automatically bundles these into extra_body.image.",
+            desc: "图生图 / 多图合成参考底图。支持公网 HTTPS URL 或 Data URI Base64（data:image/png;base64,...）。可传单张或数组，9Router 会自动将其封装为 extra_body.image 发送给上游。",
           },
           {
             name: "size",
@@ -41,8 +42,8 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             required: false,
             default: "1024x1024",
             desc: is21
-              ? "Output resolution. Recommended tier: '1K', '2K', '3K', '4K' (paired with ratio), or exact dimensions like '1024x1024', '1024x768', '768x1024'."
-              : "Output resolution dimensions, e.g. '1024x1024', '1024x768', '768x1024'.",
+              ? "输出图像尺寸。2.1-flash 推荐使用分辨率档位：'1K'、'2K'、'3K'、'4K'（配合 ratio 使用），也兼容 '1024x1024'、'1024x768'、'768x1024' 等精确像素。"
+              : "输出图像尺寸，例如 '1024x1024'、'1024x768'、'768x1024'。",
           },
           ...(is21 ? [
             {
@@ -50,7 +51,7 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
               type: "string",
               required: false,
               default: "1:1",
-              desc: "Aspect ratio (supported by 2.1-flash): '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9'.",
+              desc: "宽高比（2.1-flash 支持）：'1:1'、'16:9'、'9:16'、'4:3'、'3:4'、'3:2'、'2:3'、'21:9'。",
             }
           ] : []),
           {
@@ -58,18 +59,18 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             type: "string",
             required: false,
             default: "url",
-            desc: "Output format: 'url' (returns downloadable image URL) or 'b64_json' (returns Base64 encoded string). 9Router safely relocates this into extra_body and adds return_base64 when needed.",
+            desc: "输出格式：'url'（返回公网下载图片链接）或 'b64_json'（返回 Base64 数据）。9Router 会自动将其移至 extra_body.response_format，避免顶层参数导致上游 422 报错。",
           },
           {
             name: "extra_body",
             type: "object",
             required: false,
-            desc: "Optional pass-through dictionary for custom upstream parameters (e.g. { response_format: 'url', image: [...] }).",
+            desc: "可选高级参数字典（例如直接传 { response_format: 'url', image: [...] }）。",
           },
         ],
         examples: [
           {
-            title: "Text to Image (文生图)",
+            title: "1. 文生图 (Text to Image)",
             body: {
               model: `agnes-ai/${selectedModelId || "agnes-image-2.0-flash"}`,
               prompt: "A clean product photo of a wireless headphone on a white studio background, soft shadows, 8k resolution",
@@ -79,7 +80,7 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             },
           },
           {
-            title: "Image to Image / Edit (图生图 / 风格迁移)",
+            title: "2. 单图图生图 / 风格迁移 (Image to Image)",
             body: {
               model: `agnes-ai/${selectedModelId || "agnes-image-2.0-flash"}`,
               prompt: "Transform this daytime photo into a cyberpunk city at night with neon lights, keeping the building geometry unchanged",
@@ -89,7 +90,7 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             },
           },
           {
-            title: "Multi-Image Composition (多图合成 / 角色融合)",
+            title: "3. 多图合成 / 角色融合 (Multi-Image Composition)",
             body: {
               model: `agnes-ai/${selectedModelId || "agnes-image-2.1-flash"}`,
               prompt: "Place the character from the first image beside the product from the second image in a modern showroom",
@@ -110,8 +111,9 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
       const isImg2Img = selectedModelId?.includes("img2img");
       const isInpainting = selectedModelId?.includes("inpainting");
       return {
-        title: "Cloudflare Workers AI Image API Reference",
-        description: "Direct standard REST interface for Cloudflare Workers AI image generation, img2img, and inpainting models.",
+        title: "Cloudflare Workers AI 图像接口文档 (API Reference)",
+        subtitle: "POST /v1/images/generations",
+        description: "Cloudflare Workers AI 图像生成、图生图与蒙版局部重绘接口。",
         endpoint: "/v1/images/generations",
         method: "POST",
         parameters: [
@@ -120,20 +122,20 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             type: "string",
             required: true,
             default: selectedModelId || "cloudflare-ai/@cf/black-forest-labs/flux-1-schnell",
-            desc: "Model identifier, e.g. cloudflare-ai/@cf/black-forest-labs/flux-1-schnell or cloudflare-ai/@cf/runwayml/stable-diffusion-v1-5-inpainting",
+            desc: "模型标识符，例如 cloudflare-ai/@cf/black-forest-labs/flux-1-schnell 或 cloudflare-ai/@cf/runwayml/stable-diffusion-v1-5-inpainting",
           },
           {
             name: "prompt",
             type: "string",
             required: true,
-            desc: "Text description of the desired image or inpainting instruction.",
+            desc: "图像描述提示词或重绘指令。",
           },
           ...(isImg2Img || isInpainting ? [
             {
               name: "image",
               type: "string",
               required: true,
-              desc: "Reference input image URL or Data URI Base64.",
+              desc: "参考底图 URL 或 Base64。",
             }
           ] : []),
           ...(isInpainting ? [
@@ -141,7 +143,7 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
               name: "mask_image",
               type: "string",
               required: true,
-              desc: "Mask image URL or Data URI Base64 (white areas will be repainted, black areas preserved).",
+              desc: "蒙版图片 URL 或 Base64（白色区域重绘，黑色区域保留）。",
             }
           ] : []),
           {
@@ -149,45 +151,45 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
             type: "string",
             required: false,
             default: "1024x1024",
-            desc: "Dimensions: '1024x1024', '1024x768', '768x1024', '512x512', etc.",
+            desc: "尺寸：'1024x1024'、'1024x768'、'768x1024'、'512x512' 等。",
           },
           {
             name: "negative_prompt",
             type: "string",
             required: false,
-            desc: "Elements to avoid in generated image (e.g. 'blurry, low quality, distorted, bad anatomy').",
+            desc: "负向提示词（过滤模糊、变形、低质元素）。",
           },
           {
             name: "strength",
             type: "number",
             required: false,
             default: "0.75",
-            desc: "Transformation strength for img2img / inpainting (0.05 to 1.0). Lower values stay closer to the original image.",
+            desc: "图生图 / 重绘变化强度（0.05 到 1.0）。",
           },
           {
             name: "guidance",
             type: "number",
             required: false,
             default: "7.5",
-            desc: "Classifier-Free Guidance (CFG) scale (1.0 to 20.0). Higher values adhere closer to prompt.",
+            desc: "CFG 提示词遵循度（1.0 到 20.0）。",
           },
           {
             name: "num_steps",
             type: "number",
             required: false,
             default: "20",
-            desc: "Number of diffusion sampling steps (1 to 50).",
+            desc: "扩散步数（1 到 50）。",
           },
           {
             name: "seed",
             type: "number",
             required: false,
-            desc: "Random seed for reproducible results.",
+            desc: "随机种子，用于复现生成效果。",
           },
         ],
         examples: [
           {
-            title: isInpainting ? "Inpainting (蒙版局部重绘)" : isImg2Img ? "Image to Image (图生图)" : "Text to Image (文生图)",
+            title: isInpainting ? "蒙版局部重绘 (Inpainting)" : isImg2Img ? "图生图 (Image to Image)" : "文生图 (Text to Image)",
             body: isInpainting ? {
               model: `cloudflare-ai/${selectedModelId || "@cf/runwayml/stable-diffusion-v1-5-inpainting"}`,
               prompt: "A yellow rubber duck floating in the pool",
@@ -213,22 +215,22 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
       };
     }
 
-    // Generic image provider doc
     return {
-      title: `${providerId.toUpperCase()} Image API Reference`,
-      description: "OpenAI-compatible image generation endpoint.",
+      title: `${providerId.toUpperCase()} 图像接口文档 (API Reference)`,
+      subtitle: "POST /v1/images/generations",
+      description: "标准 OpenAI 兼容图像生成接口。",
       endpoint: "/v1/images/generations",
       method: "POST",
       parameters: [
-        { name: "model", type: "string", required: true, desc: "Model identifier" },
-        { name: "prompt", type: "string", required: true, desc: "Text prompt" },
-        { name: "size", type: "string", required: false, default: "1024x1024", desc: "Image resolution" },
-        { name: "image", type: "string | string[]", required: false, desc: "Reference image(s) for img2img (if supported)" },
-        { name: "response_format", type: "string", required: false, default: "url", desc: "'url' | 'b64_json'" },
+        { name: "model", type: "string", required: true, desc: "模型名称" },
+        { name: "prompt", type: "string", required: true, desc: "提示词文本" },
+        { name: "size", type: "string", required: false, default: "1024x1024", desc: "图像分辨率" },
+        { name: "image", type: "string | string[]", required: false, desc: "参考底图（图生图支持）" },
+        { name: "response_format", type: "string", required: false, default: "url", desc: "'url' 或 'b64_json'" },
       ],
       examples: [
         {
-          title: "Standard Request",
+          title: "标准文生图请求",
           body: {
             model: `${providerId}/${selectedModelId || "default"}`,
             prompt: "A majestic lion standing on a cliff",
@@ -242,20 +244,21 @@ function getProviderDocConfig(providerId, selectedModelId, kind) {
 
   if (kind === "video") {
     return {
-      title: `${providerId.toUpperCase()} Video API Reference`,
-      description: "Asynchronous video generation endpoint.",
+      title: `${providerId.toUpperCase()} 视频生成接口文档 (API Reference)`,
+      subtitle: "POST /v1/videos/generations",
+      description: "异步视频生成与任务创建接口。",
       endpoint: "/v1/videos/generations",
       method: "POST",
       parameters: [
-        { name: "model", type: "string", required: true, desc: "Video model identifier (e.g. agnes-ai/agnes-video-v2.0)" },
-        { name: "prompt", type: "string", required: true, desc: "Video description prompt" },
-        { name: "image", type: "string", required: false, desc: "Optional starting image URL / Base64 for Image-to-Video" },
-        { name: "duration", type: "number", required: false, desc: "Video duration in seconds" },
-        { name: "aspect_ratio", type: "string", required: false, default: "16:9", desc: "'16:9', '9:16', '1:1', etc." },
+        { name: "model", type: "string", required: true, desc: "视频模型名称 (例如 agnes-ai/agnes-video-v2.0)" },
+        { name: "prompt", type: "string", required: true, desc: "视频画面与动作描述提示词" },
+        { name: "image", type: "string", required: false, desc: "首帧或参考底图 URL / Base64（图生视频）" },
+        { name: "duration", type: "number", required: false, desc: "视频时长（秒）" },
+        { name: "aspect_ratio", type: "string", required: false, default: "16:9", desc: "画面比例，如 '16:9'、'9:16'、'1:1'" },
       ],
       examples: [
         {
-          title: "Create Video Task (创建视频任务)",
+          title: "创建视频生成任务",
           body: {
             model: `${providerId}/${selectedModelId || "agnes-video-v2.0"}`,
             prompt: "A cinematic aerial shot of misty pine mountains at dawn",
@@ -283,121 +286,123 @@ export default function ApiDocSection({ providerId, selectedModelId, kind, endpo
   -d '${sampleReqJson}'`;
 
   return (
-    <Card className="overflow-hidden border border-border/80 bg-surface/50">
+    <Card className="border border-primary/20 bg-primary/[0.02] shadow-sm">
       {/* Header Toggle */}
-      <button
-        type="button"
+      <div
         onClick={() => setIsExpanded((v) => !v)}
-        className="w-full flex items-center justify-between p-1 hover:opacity-80 transition-opacity text-left cursor-pointer"
+        className="w-full flex items-center justify-between p-1 hover:opacity-90 transition-opacity cursor-pointer select-none"
       >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="size-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[18px]">menu_book</span>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-8 rounded-lg bg-primary text-white flex items-center justify-center shrink-0 shadow-sm">
+            <span className="material-symbols-outlined text-[20px]">description</span>
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-sm text-text-main">
-                API Reference & Parameters
+                {doc.title}
               </h3>
               <Badge variant="primary" size="sm">
                 {doc.method} {doc.endpoint}
               </Badge>
             </div>
             <p className="text-xs text-text-muted truncate mt-0.5">
-              {isExpanded ? "Click to collapse documentation" : "Click to view full parameter specifications, types, and sample payloads"}
+              {isExpanded ? "点击收起参数规格表与调用示例" : "点击展开查看支持的参数、类型说明、9Router 自动转换规则及代码示例"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-text-muted shrink-0 pl-2">
-          <span>{isExpanded ? "Collapse" : "Expand"}</span>
+        <div className="flex items-center gap-1.5 text-xs text-primary font-medium shrink-0 pl-3">
+          <span>{isExpanded ? "收起文档" : "展开文档"}</span>
           <span
-            className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${
+            className={`material-symbols-outlined text-[22px] transition-transform duration-200 ${
               isExpanded ? "rotate-180" : ""
             }`}
           >
             expand_more
           </span>
         </div>
-      </button>
+      </div>
 
       {/* Expanded Content */}
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-border flex flex-col gap-4 animate-in fade-in duration-150">
           {/* Overview notice */}
-          <div className="rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-border/60 p-3 text-xs leading-relaxed text-text-muted">
-            {doc.description}
+          <div className="rounded-lg bg-black/[0.03] dark:bg-white/[0.03] border border-border/80 p-3 text-xs leading-relaxed text-text-muted">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">info</span>
+              <div>{doc.description}</div>
+            </div>
           </div>
 
           {/* Sub tabs */}
-          <div className="flex items-center gap-2 border-b border-border pb-2">
+          <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab("params")}
-              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer shrink-0 ${
                 activeTab === "params"
                   ? "bg-primary text-white"
                   : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
-              Parameters Table ({doc.parameters.length})
+              参数规格表 ({doc.parameters.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("examples")}
-              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer shrink-0 ${
                 activeTab === "examples"
                   ? "bg-primary text-white"
                   : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
-              Request Examples ({doc.examples.length})
+              场景请求示例 ({doc.examples.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab("curl")}
-              className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer shrink-0 ${
                 activeTab === "curl"
                   ? "bg-primary text-white"
                   : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
-              cURL Sample
+              cURL 示例
             </button>
           </div>
 
           {/* Tab 1: Parameters Table */}
           {activeTab === "params" && (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
                   <tr className="border-b border-border text-text-muted font-medium bg-black/[0.02] dark:bg-white/[0.02]">
-                    <th className="py-2 px-3 font-semibold">Parameter</th>
-                    <th className="py-2 px-3 font-semibold">Type</th>
-                    <th className="py-2 px-3 font-semibold">Requirement</th>
-                    <th className="py-2 px-3 font-semibold">Default / Options</th>
-                    <th className="py-2 px-3 font-semibold">Description & 9Router Behavior</th>
+                    <th className="py-2.5 px-3 font-semibold">参数名</th>
+                    <th className="py-2.5 px-3 font-semibold">类型</th>
+                    <th className="py-2.5 px-3 font-semibold">必填/选填</th>
+                    <th className="py-2.5 px-3 font-semibold">默认值 / 选项</th>
+                    <th className="py-2.5 px-3 font-semibold min-w-[280px]">说明及 9Router 网关行为</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60">
+                <tbody className="divide-y divide-border">
                   {doc.parameters.map((p) => (
                     <tr key={p.name} className="hover:bg-black/[0.01] dark:hover:bg-white/[0.01]">
-                      <td className="py-2 px-3 font-mono font-medium text-primary whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono font-medium text-primary whitespace-nowrap">
                         {p.name}
                       </td>
-                      <td className="py-2 px-3 font-mono text-text-muted whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-text-muted whitespace-nowrap">
                         {p.type}
                       </td>
-                      <td className="py-2 px-3 whitespace-nowrap">
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         {p.required ? (
-                          <Badge variant="error" size="sm">Required</Badge>
+                          <Badge variant="error" size="sm">必填</Badge>
                         ) : (
-                          <Badge variant="default" size="sm">Optional</Badge>
+                          <Badge variant="default" size="sm">选填</Badge>
                         )}
                       </td>
-                      <td className="py-2 px-3 font-mono text-text-muted text-[11px] whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-text-muted text-[11px] whitespace-nowrap">
                         {p.default || "—"}
                       </td>
-                      <td className="py-2 px-3 text-text-main leading-relaxed min-w-[240px]">
+                      <td className="py-2.5 px-3 text-text-main leading-relaxed">
                         {p.desc}
                       </td>
                     </tr>
@@ -413,21 +418,21 @@ export default function ApiDocSection({ providerId, selectedModelId, kind, endpo
               {doc.examples.map((ex, idx) => {
                 const exJson = JSON.stringify(ex.body, null, 2);
                 return (
-                  <div key={idx} className="flex flex-col gap-1.5">
+                  <div key={idx} className="flex flex-col gap-1.5 rounded-lg border border-border p-3 bg-sidebar/50">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-text-main">{ex.title}</span>
                       <button
                         type="button"
                         onClick={() => copy(exJson, `ex-${idx}`)}
-                        className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-primary transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline transition-colors cursor-pointer font-medium"
                       >
                         <span className="material-symbols-outlined text-[14px]">
                           {copied === `ex-${idx}` ? "check" : "content_copy"}
                         </span>
-                        {copied === `ex-${idx}` ? "Copied" : "Copy Payload"}
+                        {copied === `ex-${idx}` ? "已复制 Payload" : "复制 Payload"}
                       </button>
                     </div>
-                    <pre className="bg-sidebar rounded-lg p-3 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">
+                    <pre className="bg-background rounded-lg p-3 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all border border-border">
                       {exJson}
                     </pre>
                   </div>
@@ -438,21 +443,21 @@ export default function ApiDocSection({ providerId, selectedModelId, kind, endpo
 
           {/* Tab 3: cURL Command */}
           {activeTab === "curl" && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 rounded-lg border border-border p-3 bg-sidebar/50">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-text-main">cURL Command</span>
+                <span className="text-xs font-semibold text-text-main">cURL 命令行</span>
                 <button
                   type="button"
                   onClick={() => copy(sampleCurl, "curl-doc")}
-                  className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-primary transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline transition-colors cursor-pointer font-medium"
                 >
                   <span className="material-symbols-outlined text-[14px]">
                     {copied === "curl-doc" ? "check" : "content_copy"}
                   </span>
-                  {copied === "curl-doc" ? "Copied" : "Copy Command"}
+                  {copied === "curl-doc" ? "已复制 cURL" : "复制 cURL 命令"}
                 </button>
               </div>
-              <pre className="bg-sidebar rounded-lg p-3 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">
+              <pre className="bg-background rounded-lg p-3 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all border border-border">
                 {sampleCurl}
               </pre>
             </div>

@@ -12,6 +12,7 @@ import { KIND_EXAMPLE_CONFIG } from "./components/exampleShared";
 import { EmbeddingExampleCard } from "./components/EmbeddingExampleCard";
 import { TtsExampleCard } from "./components/TtsExampleCard";
 import { GenericExampleCard } from "./components/GenericExampleCard";
+import ApiDocSection from "./components/ApiDocSection";
 import { SttExampleCard } from "./components/SttExampleCard";
 
 // MediaProviderDetailPage
@@ -185,6 +186,15 @@ export default function MediaProviderDetailPage() {
           }
           provider={provider}
           title={`${kindConfig.label} Config`}
+        />
+      )}
+
+      {/* API Reference & Documentation */}
+      {!isCustom && (kind === "image" || kind === "video") && (
+        <ApiDocSection
+          providerId={id}
+          selectedModelId={getModelsByProviderId(id).find((m) => getModelKind(m) === kind)?.id}
+          kind={kind}
         />
       )}
 

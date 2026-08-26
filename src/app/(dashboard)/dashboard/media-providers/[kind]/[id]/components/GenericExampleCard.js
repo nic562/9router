@@ -7,7 +7,6 @@ import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/sha
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row, KIND_EXAMPLE_CONFIG } from "./exampleShared";
-import ApiDocSection from "./ApiDocSection";
 
 const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.png";
 const CLOUDFLARE_TEST_MASK_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog-mask.png";
@@ -226,14 +225,7 @@ export function GenericExampleCard({ providerId, kind }) {
   if (!kindConfig || !exConfig) return null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <ApiDocSection
-        providerId={providerId}
-        selectedModelId={selectedModel}
-        kind={kind}
-        endpoint={endpoint}
-      />
-      <Card>
+    <Card>
       <h2 className="text-lg font-semibold mb-4">Example</h2>
       <div className="flex flex-col gap-2.5">
         {/* Model selector — dropdown if presets exist, else manual input for media kinds */}
@@ -564,6 +556,5 @@ export function GenericExampleCard({ providerId, kind }) {
         </div>
       </div>
     </Card>
-    </div>
   );
 }
