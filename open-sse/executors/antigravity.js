@@ -70,21 +70,47 @@ function isImageModel(model) {
 // Parse aspect ratio / resolution from model name suffixes
 // e.g. "gemini-3.1-flash-image-16x9" -> { aspectRatio: "16:9" }
 // e.g. "gemini-3.1-flash-image-1024x768" -> { aspectRatio: "4:3" }
-function parseImageConfig(model) {
-  const config = { aspectRatio: "1:1" };
-  const resMatch = model.match(/(\d+)x(\d+)$/);
-  if (resMatch) {
-    const w = parseInt(resMatch[1]);
-    const h = parseInt(resMatch[2]);
-    if (w <= 16 && h <= 16) {
-      config.aspectRatio = `${w}:${h}`;
-    } else {
-      // Resolution like 1024x768 — derive aspect ratio
-      const gcd = (a, b) => b ? gcd(b, a % b) : a;
+function parseImageConfig(body, model) {
+  const config = {};
+
+  const rawRatio = body?.ratio || body?.aspect_ratio || body?.generationConfig?.imageConfig?.aspectRatio;
+  if (rawRatio && rawRatio !== "auto") {
+    config.aspectRatio = String(rawRatio).replace("x", ":");
+  }
+
+  const rawSize = body?.size || body?.generationConfig?.imageConfig?.imageSize || body?.imageSize;
+  if (rawSize && ["1K", "2K", "4K"].includes(String(rawSize).toUpperCase())) {
+    config.imageSize = String(rawSize).toUpperCase();
+  } else if (rawSize && /^(\d+)x(\d+)$/.test(String(rawSize))) {
+    const [_, wStr, hStr] = String(rawSize).match(/^(\d+)x(\d+)$/);
+    const w = Number(wStr);
+    const h = Number(hStr);
+    if (!config.aspectRatio) {
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
       const d = gcd(w, h);
-      config.aspectRatio = `${w/d}:${h/d}`;
+      config.aspectRatio = `${w / d}:${h / d}`;
     }
   }
+
+  if (!config.aspectRatio && model) {
+    const resMatch = model.match(/(\d+)x(\d+)$/);
+    if (resMatch) {
+      const w = parseInt(resMatch[1]);
+      const h = parseInt(resMatch[2]);
+      if (w <= 16 && h <= 16) {
+        config.aspectRatio = `${w}:${h}`;
+      } else {
+        const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+        const d = gcd(w, h);
+        config.aspectRatio = `${w / d}:${h / d}`;
+      }
+    }
+  }
+
+  if (!config.aspectRatio) {
+    config.aspectRatio = "1:1";
+  }
+
   return config;
 }
 
@@ -142,7 +168,7 @@ export class AntigravityExecutor extends BaseExecutor {
 
     // ─── Image generation: completely different request structure ───
     if (isImageModel(model)) {
-      const imageConfig = parseImageConfig(model);
+      const imageConfig = parseImageConfig(body, model);
       // Strip model name suffixes for the actual API model name
       const cleanModel = model.replace(/-(\d+)x(\d+)$/, "");
 

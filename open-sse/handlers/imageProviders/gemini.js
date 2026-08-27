@@ -49,6 +49,50 @@ function extractInputImages(body) {
   return images.filter(Boolean);
 }
 
+function parseImageConfig(body, model) {
+  const config = {};
+
+  const rawRatio = body?.ratio || body?.aspect_ratio || body?.generationConfig?.imageConfig?.aspectRatio;
+  if (rawRatio && rawRatio !== "auto") {
+    config.aspectRatio = String(rawRatio).replace("x", ":");
+  }
+
+  const rawSize = body?.size || body?.generationConfig?.imageConfig?.imageSize || body?.imageSize;
+  if (rawSize && ["1K", "2K", "4K"].includes(String(rawSize).toUpperCase())) {
+    config.imageSize = String(rawSize).toUpperCase();
+  } else if (rawSize && /^(\d+)x(\d+)$/.test(String(rawSize))) {
+    const [_, wStr, hStr] = String(rawSize).match(/^(\d+)x(\d+)$/);
+    const w = Number(wStr);
+    const h = Number(hStr);
+    if (!config.aspectRatio) {
+      const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+      const d = gcd(w, h);
+      config.aspectRatio = `${w / d}:${h / d}`;
+    }
+  }
+
+  if (!config.aspectRatio && model) {
+    const resMatch = model.match(/(\d+)x(\d+)$/);
+    if (resMatch) {
+      const w = parseInt(resMatch[1]);
+      const h = parseInt(resMatch[2]);
+      if (w <= 16 && h <= 16) {
+        config.aspectRatio = `${w}:${h}`;
+      } else {
+        const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+        const d = gcd(w, h);
+        config.aspectRatio = `${w / d}:${h / d}`;
+      }
+    }
+  }
+
+  if (!config.aspectRatio) {
+    config.aspectRatio = "1:1";
+  }
+
+  return config;
+}
+
 export default {
   buildUrl: (model, creds) => {
     const apiKey = creds?.apiKey || creds?.accessToken;
@@ -56,7 +100,7 @@ export default {
     return `${BASE_URL}/${modelId}:generateContent?key=${encodeURIComponent(apiKey)}`;
   },
   buildHeaders: () => ({ "Content-Type": "application/json" }),
-  buildBody: async (_model, body) => {
+  buildBody: async (model, body) => {
     const parts = [];
 
     const rawImages = extractInputImages(body);
@@ -69,9 +113,20 @@ export default {
       parts.push({ text: body.prompt });
     }
 
+    const imageConfig = parseImageConfig(body, model);
+
+    const generationConfig = {
+      responseModalities: ["TEXT", "IMAGE"],
+      ...(body.generationConfig || {}),
+      imageConfig: {
+        ...imageConfig,
+        ...(body.generationConfig?.imageConfig || {}),
+      },
+    };
+
     return {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+      generationConfig,
     };
   },
   normalize: (responseBody, prompt) => {
