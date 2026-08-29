@@ -1,6 +1,6 @@
 // Antigravity image adapter - delegates to the executor for correct request
 // envelope (project, model, requestType, sessionId) and auth headers.
-import { nowSec, urlToBase64 } from "./_base.js";
+import { nowSec, urlToBase64, sizeToAspectRatio } from "./_base.js";
 import { getExecutor } from "../../executors/index.js";
 
 // Convert image input (data URI, public URL, or raw base64) to Gemini inlineData part
@@ -77,6 +77,19 @@ export default {
     const executor = getExecutor("antigravity");
     if (!executor) throw new Error("Antigravity executor not found");
 
+    // Ensure we use an image model for image generation
+    const isImageModel = (m) => /image|imagen|image-generation/i.test(m || "");
+    let targetModel = isImageModel(model) ? model : "gemini-3.1-flash-image";
+
+    // If body.size is provided, resolve aspect ratio and append to model
+    if (body.size && typeof body.size === "string") {
+      const ratio = sizeToAspectRatio(body.size);
+      const suffix = ratio.replace(":", "x");
+      if (!targetModel.includes(suffix)) {
+        targetModel = `${targetModel}-${suffix}`;
+      }
+    }
+
     // Build parts: text prompt + optional input images for editing / multi-image reference
     const parts = [];
 
@@ -100,7 +113,7 @@ export default {
     };
 
     const result = await executor.execute({
-      model,
+      model: targetModel,
       body: chatBody,
       stream: false,
       credentials,
