@@ -1,32 +1,31 @@
-import "./globals.css";
-import "./themes.css";
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "@/components/ThemeProvider";
-import { ToastProvider } from "@/components/Toast";
-import { ConfirmDialogProvider } from "@/components/ConfirmDialog";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { RuntimeI18nProvider } from "@/lib/i18n/runtime";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import "material-symbols/outlined.css";
+import "./globals.css";
+import { ThemeProvider } from "@/shared/components/ThemeProvider";
+import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env
+import "@/shared/services/bootstrap"; // Auto-run initializeApp (watchdog, auto-resume tunnel)
+import { initConsoleLogCapture } from "@/lib/consoleLogBuffer";
+import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
+
+// Hook console immediately at module load time (server-side only, runs once)
+initConsoleLogCapture();
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap",
 });
 
 export const metadata = {
-  title: "9Router - AI Gateway & Proxy",
-  description: "High-performance AI model gateway and proxy server",
+  title: "9Router - AI Infrastructure Management",
+  description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
   icons: {
-    icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
+    icon: "/favicon.svg",
   },
 };
 
 export const viewport = {
-  width: "device-width",
-  initialScale: 1,
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }) {
@@ -42,13 +41,10 @@ export default function RootLayout({ children }) {
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
           <RuntimeI18nProvider>
-            <TooltipProvider>
-              <ToastProvider>
-                <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
-              </ToastProvider>
-            </TooltipProvider>
+            {children}
           </RuntimeI18nProvider>
         </ThemeProvider>
+        <GoogleAnalytics gaId={"G-LC959F603F"} />
       </body>
     </html>
   );
