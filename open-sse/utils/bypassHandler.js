@@ -73,7 +73,7 @@ export function handleBypassRequest(body, model, userAgent = "", ccFilterNaming 
   if (!shouldBypass) return null;
 
   const sourceFormat = detectFormat(body);
-  const stream = body.stream !== false;
+  const stream = body.stream === true || sourceFormat === "antigravity" || sourceFormat === "gemini" || sourceFormat === "gemini-cli";
 
   // For naming bypass, generate title from user message
   if (namingBypass) {
