@@ -134,3 +134,36 @@ describe("stream passthrough and usage preservation", () => {
     expect(completedUsage).toBeDefined();
     expect(completedUsage.estimated).toBe(true);
   });
+
+  it("preserves Agnes-AI style trailing usage chunk where choices has empty delta", async () => {
+    let completedUsage = null;
+    const stream = createPassthroughStreamWithLogger(
+      "agnes-ai",
+      null,
+      "agnes-2.5-flash",
+      "conn-1",
+      { model: "agnes-2.5-flash", messages: [{ role: "user", content: "hello" }] },
+      (content, usage) => {
+        completedUsage = usage;
+      }
+    );
+
+    const chunks = [
+      'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n',
+      'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n',
+      'data: {"id":"chatcmpl-1","choices":[{"index":0,"delta":{}}],"usage":{"prompt_tokens":1284,"completion_tokens":37,"total_tokens":1321,"prompt_tokens_details":{"cached_tokens":256}}}\n\n',
+      'data: [DONE]\n\n'
+    ];
+
+    const result = await consumeStream(stream, chunks);
+    const lines = result.split("\n").filter(l => l.startsWith("data: ") && !l.includes("[DONE]"));
+    const parsedChunks = lines.map(l => JSON.parse(l.slice(6)));
+
+    // Agnes AI chunk with choices: [{"index":0,"delta":{}}] and usage MUST NOT be dropped by hasValuableContent!
+    const usageChunk = parsedChunks.find(c => c.usage !== undefined);
+    expect(usageChunk).toBeDefined();
+    expect(usageChunk.usage.prompt_tokens_details?.cached_tokens).toBe(256);
+
+    expect(completedUsage).toBeDefined();
+    expect(completedUsage.prompt_tokens_details?.cached_tokens).toBe(256);
+  });

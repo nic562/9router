@@ -35,14 +35,19 @@ export function parseSSELine(line, format = null) {
 
 // Check if chunk has valuable content (not empty)
 export function hasValuableContent(chunk, format) {
+  // Never discard a chunk that carries usage (e.g. trailing usage chunk in OpenAI or Agnes AI)
+  if (chunk.usage && typeof chunk.usage === "object") {
+    return true;
+  }
+
   // OpenAI format
   if (format === FORMATS.OPENAI && chunk.choices?.[0]?.delta) {
     const delta = chunk.choices[0].delta;
-    return delta.content && delta.content !== "" ||
+    return Boolean(delta.content && delta.content !== "" ||
            delta.reasoning_content && delta.reasoning_content !== "" ||
            delta.tool_calls && delta.tool_calls.length > 0 ||
            chunk.choices[0].finish_reason ||
-           delta.role;
+           delta.role);
   }
 
   // Claude format
