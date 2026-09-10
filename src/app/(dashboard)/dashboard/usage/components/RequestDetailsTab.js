@@ -84,11 +84,20 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
 }
 
 function getCachedTokens(tokens) {
-  return tokens?.cached_tokens || tokens?.cache_read_input_tokens || 0;
+  return (
+    tokens?.cached_tokens ||
+    tokens?.cache_read_input_tokens ||
+    tokens?.prompt_tokens_details?.cached_tokens ||
+    0
+  );
 }
 
 function getCacheCreationTokens(tokens) {
-  return tokens?.cache_creation_input_tokens || 0;
+  return (
+    tokens?.cache_creation_input_tokens ||
+    tokens?.prompt_tokens_details?.cache_creation_tokens ||
+    0
+  );
 }
 
 function getInputTokens(tokens) {
@@ -428,14 +437,23 @@ export default function RequestDetailsTab() {
                   {getInputTokens(selectedDetail.tokens).toLocaleString()}
                 </span>
               </div>
-              {getCachedTokens(selectedDetail.tokens) > 0 && (
-                <div>
-                  <span className="text-text-muted">Cached Tokens:</span>{" "}
-                  <span className="text-text-main font-mono">
-                    {getCachedTokens(selectedDetail.tokens).toLocaleString()}
-                  </span>
-                </div>
-              )}
+              <div>
+                <span className="text-text-muted">Cached Tokens:</span>{" "}
+                <span className="text-text-main font-mono">
+                  {getCachedTokens(selectedDetail.tokens) > 0 ? (
+                    <span className="text-info font-medium">
+                      {getCachedTokens(selectedDetail.tokens).toLocaleString()}
+                      {getInputTokens(selectedDetail.tokens) > 0 && (
+                        <span className="text-xs font-normal text-text-muted ml-1">
+                          ({Math.round((getCachedTokens(selectedDetail.tokens) / getInputTokens(selectedDetail.tokens)) * 100)}%)
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </span>
+              </div>
               {getCacheCreationTokens(selectedDetail.tokens) > 0 && (
                 <div>
                   <span className="text-text-muted">Cache Creation:</span>{" "}

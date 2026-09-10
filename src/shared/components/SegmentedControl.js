@@ -27,6 +27,7 @@ export default function SegmentedControl({
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
+          suppressHydrationWarning
           className={cn(
             "shrink-0 px-4 rounded-[8px] font-medium transition-all",
             sizes[size],
@@ -40,7 +41,7 @@ export default function SegmentedControl({
               {option.icon}
             </span>
           )}
-          {option.label}
+          <span suppressHydrationWarning>{option.label}</span>
         </button>
       ))}
     </div>
