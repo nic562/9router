@@ -90,6 +90,16 @@ export async function handleChat(request, clientRawRequest = null) {
   const bypassResponse = handleBypassRequest(body, modelStr, userAgent, !!settings.ccFilterNaming);
   if (bypassResponse) return bypassResponse.response || bypassResponse;
 
+  // Reject explicit empty messages early to avoid sending invalid payload to upstream or triggering combos
+  const hasMessages = Array.isArray(body.messages) && body.messages.length > 0;
+  const hasInput = Array.isArray(body.input) ? body.input.length > 0 : !!body.input;
+  const hasContents = Array.isArray(body.contents) && body.contents.length > 0;
+  const hasPrompt = typeof body.prompt === "string" ? body.prompt.length > 0 : !!body.prompt;
+  if (Array.isArray(body.messages) && body.messages.length === 0 && !hasInput && !hasContents && !hasPrompt) {
+    log.warn("CHAT", "Empty messages array");
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "messages must not be empty");
+  }
+
   const requiredCapabilities = detectRequiredCapabilities(body);
 
   // Check if model is a combo (has multiple models with fallback)

@@ -47,20 +47,23 @@ const COOLDOWN = {
   short: 5 * 1000,
 };
 
+// Client errors that must be terminal and never trigger account/combo fallback
+export const NON_FALLBACK_STATUSES = new Set([400, 405, 413, 415, 422]);
+
 /**
  * Unified error classification rules.
  * Checked top-to-bottom: text rules first (by order), then status rules.
- * Each rule: { text?, status?, cooldownMs?, backoff? }
+ * Each rule: { text?, status?, cooldownMs?, backoff?, fallback? }
  *   - text: substring match (case-insensitive) on error message
  *   - status: HTTP status code match
  *   - cooldownMs: fixed cooldown duration
  *   - backoff: true = use exponential backoff (rate limit)
+ *   - fallback: false = terminal error, never fallback or lock accounts
  */
 export const ERROR_RULES = [
   // --- Text-based rules (checked first, order = priority) ---
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
-  { text: "improperly formed request", cooldownMs: COOLDOWN.long },
   { text: "rate limit",               backoff: true },
   { text: "too many requests",        backoff: true },
   { text: "quota exceeded",           backoff: true },
@@ -68,10 +71,15 @@ export const ERROR_RULES = [
   { text: "overloaded",               backoff: true },
 
   // --- Status-based rules (fallback when text doesn't match) ---
+  { status: 400, fallback: false, cooldownMs: 0 },
   { status: 401, cooldownMs: COOLDOWN.long },
   { status: 402, cooldownMs: COOLDOWN.long },
   { status: 403, cooldownMs: COOLDOWN.long },
   { status: 404, cooldownMs: COOLDOWN.long },
+  { status: 405, fallback: false, cooldownMs: 0 },
+  { status: 413, fallback: false, cooldownMs: 0 },
+  { status: 415, fallback: false, cooldownMs: 0 },
+  { status: 422, fallback: false, cooldownMs: 0 },
   { status: 429, backoff: true },
 ];
 

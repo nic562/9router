@@ -1,4 +1,4 @@
-import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS, NON_FALLBACK_STATUSES } from "../config/errorConfig.js";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -28,6 +28,9 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
   for (const rule of ERROR_RULES) {
     // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
+      if (rule.fallback === false) {
+        return { shouldFallback: false, cooldownMs: 0 };
+      }
       if (rule.backoff) {
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
@@ -37,12 +40,20 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
 
     // Status-based rule: match HTTP status code
     if (rule.status && rule.status === status) {
+      if (rule.fallback === false) {
+        return { shouldFallback: false, cooldownMs: 0 };
+      }
       if (rule.backoff) {
         const newLevel = Math.min(backoffLevel + 1, BACKOFF_CONFIG.maxLevel);
         return { shouldFallback: true, cooldownMs: getQuotaCooldown(newLevel), newBackoffLevel: newLevel };
       }
       return { shouldFallback: true, cooldownMs: rule.cooldownMs };
     }
+  }
+
+  // Known non-retriable client errors (400, 422, etc.) must never trigger fallback or lock accounts
+  if (NON_FALLBACK_STATUSES.has(status)) {
+    return { shouldFallback: false, cooldownMs: 0 };
   }
 
   // Default: transient cooldown for any unmatched error
@@ -203,7 +214,14 @@ export function applyErrorState(account, status, errorText) {
   if (!account) return account;
 
   const backoffLevel = account.backoffLevel || 0;
-  const { cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel);
+  const { shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel);
+
+  if (!shouldFallback) {
+    return {
+      ...account,
+      lastError: { status, message: errorText, timestamp: new Date().toISOString() }
+    };
+  }
 
   return {
     ...account,

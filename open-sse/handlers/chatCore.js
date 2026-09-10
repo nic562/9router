@@ -77,6 +77,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const bypassResponse = handleBypassRequest(body, model, userAgent, ccFilterNaming);
   if (bypassResponse) return bypassResponse;
 
+  // Reject explicit empty messages early to avoid sending invalid payload to upstream
+  const hasMessages = Array.isArray(body?.messages) && body.messages.length > 0;
+  const hasInput = Array.isArray(body?.input) ? body.input.length > 0 : !!body?.input;
+  const hasContents = Array.isArray(body?.contents) && body.contents.length > 0;
+  const hasPrompt = typeof body?.prompt === "string" ? body.prompt.length > 0 : !!body?.prompt;
+  if (Array.isArray(body?.messages) && body.messages.length === 0 && !hasInput && !hasContents && !hasPrompt) {
+    log?.warn?.("CHAT", "Empty messages array");
+    return createErrorResult(HTTP_STATUS.BAD_REQUEST, "messages must not be empty");
+  }
+
   const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
   const modelTargetFormat = getModelTargetFormat(alias, model);
   // Multi-endpoint providers: pick transport matching sourceFormat → zero translation.

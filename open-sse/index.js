@@ -4,7 +4,7 @@ import "./utils/proxyFetch.js";
 // Config
 export { PROVIDERS } from "./config/providers.js";
 export { OAUTH_ENDPOINTS, CLAUDE_SYSTEM_PROMPT } from "./config/appConstants.js";
-export { CACHE_TTL, DEFAULT_MAX_TOKENS, COOLDOWN_MS, BACKOFF_CONFIG } from "./config/runtimeConfig.js";
+export { CACHE_TTL, DEFAULT_MAX_TOKENS, COOLDOWN_MS, BACKOFF_CONFIG, NON_FALLBACK_STATUSES } from "./config/runtimeConfig.js";
 export { 
   PROVIDER_MODELS, 
   getProviderModels,
