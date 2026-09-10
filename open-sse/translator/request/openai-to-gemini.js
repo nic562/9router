@@ -119,10 +119,6 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
             thought: true,
             text: msg.reasoning_content
           });
-          parts.push({
-            thoughtSignature: signature,
-            text: ""
-          });
         }
 
         if (content) {
@@ -238,6 +234,9 @@ function openaiToGeminiBase(model, body, stream, signature = DEFAULT_THINKING_AG
   }
 
   result.contents = normalizeGeminiContents(result.contents);
+
+
+
   return result;
 }
 

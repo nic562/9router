@@ -129,6 +129,12 @@ export function filterToOpenAIFormat(body, opts = {}) {
     }
   }
 
+  // If no tools are present or tools array is empty, tool_choice is invalid in OpenAI spec
+  if (!body.tools || (Array.isArray(body.tools) && body.tools.length === 0)) {
+    delete body.tools;
+    delete body.tool_choice;
+  }
+
   return body;
 }
 

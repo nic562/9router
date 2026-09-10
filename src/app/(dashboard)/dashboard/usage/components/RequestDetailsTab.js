@@ -6,6 +6,7 @@ import Button from "@/shared/components/Button";
 import Drawer from "@/shared/components/Drawer";
 import Pagination from "@/shared/components/Pagination";
 import { cn } from "@/shared/utils/cn";
+import JsonViewer from "@/shared/components/JsonTreeView";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
 
 let providerNameCache = null;
@@ -495,27 +496,18 @@ export default function RequestDetailsTab() {
 
             <div className="space-y-4">
               <CollapsibleSection title="1. Client Request (Input)" defaultOpen={true} icon="input">
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                  {JSON.stringify(selectedDetail.request, null, 2)}
-                </pre>
+                <JsonViewer data={selectedDetail.request} title="Client Request" maxHeight="500px" />
               </CollapsibleSection>
 
               {selectedDetail.providerRequest && (
-                <CollapsibleSection title="2. Provider Request (Translated)" icon="translate">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                    {JSON.stringify(selectedDetail.providerRequest, null, 2)}
-                  </pre>
+                <CollapsibleSection title="2. Provider Request (Translated)" defaultOpen={true} icon="translate">
+                  <JsonViewer data={selectedDetail.providerRequest} title="Provider Request" maxHeight="500px" />
                 </CollapsibleSection>
               )}
 
               {selectedDetail.providerResponse && (
                 <CollapsibleSection title="3. Provider Response (Raw)" icon="data_object">
-                  <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                    {typeof selectedDetail.providerResponse === 'object'
-                      ? JSON.stringify(selectedDetail.providerResponse, null, 2)
-                      : selectedDetail.providerResponse
-                    }
-                  </pre>
+                  <JsonViewer data={selectedDetail.providerResponse} title="Provider Response" maxHeight="500px" />
                 </CollapsibleSection>
               )}
               

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 
@@ -104,9 +106,12 @@ function truncateField(obj, maxSize) {
         return {
           _truncated: true,
           _originalSize: str.length,
-          prompt: obj.prompt || obj.messages || undefined,
           model: obj.model || undefined,
-          _preview: str.substring(0, 2000),
+          messages: obj.messages ? `[Array of ${obj.messages.length} messages (truncated from ${str.length} bytes)]` : undefined,
+          input: obj.input ? `[Array of ${obj.input.length} input items (truncated from ${str.length} bytes)]` : undefined,
+          instructions: typeof obj.instructions === "string" ? `${obj.instructions.slice(0, 300)}... [truncated, total: ${obj.instructions.length} chars]` : undefined,
+          tools: obj.tools ? `[Array of ${obj.tools.length} tools]` : undefined,
+          _preview: str.substring(0, 4000),
         };
       }
       return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 2000) };
@@ -170,7 +175,48 @@ async function flushToDatabase() {
   }
 }
 
+
+function dumpInputToDisk(detail) {
+  const dumpEnabled = process.env.DUMP_CLIENT_INPUT === "true" || process.env.DUMP_CLIENT_INPUT === "1";
+  if (!dumpEnabled || !detail) return;
+
+  try {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = now.getFullYear();
+    const MM = pad(now.getMonth() + 1);
+    const dd = pad(now.getDate());
+    const hh = pad(now.getHours());
+    const mm = pad(now.getMinutes());
+    const ss = pad(now.getSeconds());
+    const random = Math.random().toString(36).substring(2, 8);
+
+    const baseDir = process.env.DUMP_INPUT_DIR || "/tmp/9router/input";
+    const targetDir = path.join(baseDir, `${yyyy}-${MM}-${dd}`);
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    const filename = `${hh}${mm}${ss}_${random}.log`;
+    const fullPath = path.join(targetDir, filename);
+
+    const payload = {
+      timestamp: detail.timestamp || now.toISOString(),
+      model: detail.model,
+      provider: detail.provider,
+      status: detail.status,
+      clientRequest: detail.request,
+      providerRequest: detail.providerRequest,
+      response: detail.response
+    };
+
+    fs.writeFileSync(fullPath, JSON.stringify(payload, null, 2), "utf8");
+    console.log(`[DUMP] Wrote full client input to: ${fullPath}`);
+  } catch (e) {
+    console.error("[DUMP] Failed to write client input:", e.message);
+  }
+}
+
 export async function saveRequestDetail(detail) {
+  dumpInputToDisk(detail);
   const config = await getObservabilityConfig();
   if (!config.enabled) {return;}
 

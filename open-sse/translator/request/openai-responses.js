@@ -231,6 +231,12 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   }
   if (customToolNames.size > 0) result._customToolNames = [...customToolNames];
 
+  // If no tools or empty tools array, remove tool_choice to prevent OpenAI upstream 400
+  if (!result.tools || (Array.isArray(result.tools) && result.tools.length === 0)) {
+    delete result.tools;
+    delete result.tool_choice;
+  }
+
   // Cleanup Responses API specific fields
   // Map Responses-only max_output_tokens to Chat max_tokens (avoid leaking unknown field upstream)
   if (result.max_output_tokens !== undefined) {
