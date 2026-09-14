@@ -328,6 +328,21 @@ export default function ProfilePage() {
     }
   };
 
+  const updateSyncRemoveFromCombosOnModelRemoval = async (syncRemoveFromCombosOnModelRemoval) => {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ syncRemoveFromCombosOnModelRemoval }),
+      });
+      if (res.ok) {
+        setSettings(prev => ({ ...prev, syncRemoveFromCombosOnModelRemoval }));
+      }
+    } catch (err) {
+      console.error("Failed to update syncRemoveFromCombosOnModelRemoval:", err);
+    }
+  };
+
   const updateOnlyExposeComboModels = async (onlyExposeComboModels) => {
     try {
       const res = await fetch("/api/settings", {
@@ -1545,6 +1560,21 @@ export default function ProfilePage() {
               />
             </div>
 
+            {/* Sync Remove Models from Combos */}
+            <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base">Sync Remove Models from Combos</p>
+                <p className="text-xs sm:text-sm text-text-muted">
+                  Automatically remove models from associated combos when they are disabled, deleted, or removed
+                </p>
+              </div>
+              <Toggle
+                checked={settings.syncRemoveFromCombosOnModelRemoval === true}
+                onChange={() => updateSyncRemoveFromCombosOnModelRemoval(!settings.syncRemoveFromCombosOnModelRemoval)}
+                disabled={loading}
+              />
+            </div>
+
             <p className="text-xs text-text-muted italic pt-2 border-t border-border/50">
               {settings.fallbackStrategy === "round-robin"
                 ? `Currently distributing requests across all available accounts with ${settings.stickyRoundRobinLimit || 3} calls per account.`
@@ -1554,6 +1584,9 @@ export default function ProfilePage() {
                 : " Combos always start with their first model."}
               {settings.onlyExposeComboModels
                 ? " External /v1/models only lists combo models."
+                : ""}
+              {settings.syncRemoveFromCombosOnModelRemoval
+                ? " Models removed or disabled are automatically pruned from combos."
                 : ""}
             </p>
           </div>

@@ -140,6 +140,8 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         alert("No models returned from /models.");
         return;
       }
+      const upstreamIds = new Set(models.map((m) => m.id || m.name || m.model).filter(Boolean));
+
       let importedCount = 0;
       for (const model of models) {
         const modelId = model.id || model.name || model.model;
@@ -148,8 +150,27 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         await onAddCustomModel(modelId);
         importedCount += 1;
       }
-      if (importedCount === 0) {
-        alert("No new models were added.");
+
+      let prunedCount = 0;
+      try {
+        const settingsRes = await fetch("/api/settings");
+        const settings = settingsRes.ok ? await settingsRes.json() : {};
+        if (settings.syncRemoveFromCombosOnModelRemoval === true && typeof onDeleteCustomModel === "function") {
+          const obsoleteCustom = (customModels || []).filter((m) => !upstreamIds.has(m.id));
+          for (const m of obsoleteCustom) {
+            await onDeleteCustomModel(m.id);
+            prunedCount += 1;
+          }
+        }
+      } catch {}
+
+      if (importedCount === 0 && prunedCount === 0) {
+        alert("All models already up to date.");
+      } else {
+        const msg = [];
+        if (importedCount > 0) msg.push(`Added ${importedCount} new model${importedCount > 1 ? "s" : ""}`);
+        if (prunedCount > 0) msg.push(`Removed ${prunedCount} decommissioned model${prunedCount > 1 ? "s" : ""} from combos`);
+        alert(msg.join(", ") + ".");
       }
     } catch (error) {
       console.log("Error importing models:", error);

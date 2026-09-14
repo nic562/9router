@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "এপিআই কী ছাড়াই এন্ডপয়েন্ট উন্মুক্ত।",
   "Only Expose Combos": "শুধুমাত্র কম্বো মডেল প্রদর্শন করুন",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "বাহ্যিক /v1/models ক্যাটালগ শুধুমাত্র কম্বো মডেল দেখায়, পৃথক প্রদানকারী মডেল লুকিয়ে রাখে",
-  " External /v1/models only lists combo models.": " বাহ্যিক /v1/models শুধুমাত্র কম্বো মডেল তালিকাভুক্ত করে।"
+  " External /v1/models only lists combo models.": " বাহ্যিক /v1/models শুধুমাত্র কম্বো মডেল তালিকাভুক্ত করে।",
+  "Sync Remove Models from Combos": "কম্বো থেকে মডেল সিঙ্ক করে সরান",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "মডেল নিষ্ক্রিয়, মুছে ফেলা বা প্রত্যাহার করা হলে সম্পর্কিত কম্বো থেকে স্বয়ংক্রিয়ভাবে সরান",
+  " Models removed or disabled are automatically pruned from combos.": " সরানো বা নিষ্ক্রিয় করা মডেলগুলি কম্বো থেকে স্বয়ংক্রিয়ভাবে বাদ দেওয়া হয়।"
 }

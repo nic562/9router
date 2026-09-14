@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Endpoint đang mở mà không có API key.",
   "Only Expose Combos": "Chỉ hiển thị mô hình kết hợp",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Danh mục /v1/models bên ngoài chỉ hiển thị các mô hình kết hợp, ẩn các mô hình nhà cung cấp riêng lẻ",
-  " External /v1/models only lists combo models.": " /v1/models bên ngoài chỉ liệt kê các mô hình kết hợp."
+  " External /v1/models only lists combo models.": " /v1/models bên ngoài chỉ liệt kê các mô hình kết hợp.",
+  "Sync Remove Models from Combos": "Đồng bộ xóa mô hình khỏi combo",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Tự động xóa mô hình khỏi các combo liên quan khi chúng bị tắt, xóa hoặc ngừng hoạt động",
+  " Models removed or disabled are automatically pruned from combos.": " Các mô hình đã xóa hoặc bị vô hiệu hóa sẽ tự động được lọc khỏi combo."
 }

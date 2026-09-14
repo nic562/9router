@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "O endpoint está exposto sem uma chave de API.",
   "Only Expose Combos": "Expor apenas modelos combinados",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "O catálogo externo /v1/models mostra apenas modelos combinados, ocultando modelos de fornecedores individuais",
-  " External /v1/models only lists combo models.": " O catálogo externo /v1/models lista apenas modelos combinados."
+  " External /v1/models only lists combo models.": " O catálogo externo /v1/models lista apenas modelos combinados.",
+  "Sync Remove Models from Combos": "Remover modelos dos combos de forma sincronizada",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Remover automaticamente modelos dos combos associados quando desativados, eliminados ou retirados",
+  " Models removed or disabled are automatically pruned from combos.": " Modelos removidos ou desativados são eliminados automaticamente dos combos."
 }

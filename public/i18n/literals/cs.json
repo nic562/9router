@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Koncový bod je vystaven bez API klíče.",
   "Only Expose Combos": "Zobrazit pouze kombinované modely",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Externí katalog /v1/models zobrazuje pouze kombinované modely a skrývá jednotlivé modely poskytovatelů",
-  " External /v1/models only lists combo models.": " Externí /v1/models uvádí pouze kombinované modely."
+  " External /v1/models only lists combo models.": " Externí /v1/models uvádí pouze kombinované modely.",
+  "Sync Remove Models from Combos": "Synchronizovaně odebrat modely z komb",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Automaticky odebrat modely ze souvisejících komb při jejich zakázání, smazání nebo vyřazení",
+  " Models removed or disabled are automatically pruned from combos.": " Odebrané nebo zakázané modely jsou automaticky odstraněny z komb."
 }

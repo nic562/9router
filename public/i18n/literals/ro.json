@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Endpointul este expus fără o cheie API.",
   "Only Expose Combos": "Afișează doar modele combinate",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Catalogul extern /v1/models afișează doar modele combinate, ascunzând modelele individuale ale furnizorilor",
-  " External /v1/models only lists combo models.": " Catalogul extern /v1/models listează doar modele combinate."
+  " External /v1/models only lists combo models.": " Catalogul extern /v1/models listează doar modele combinate.",
+  "Sync Remove Models from Combos": "Elimină sincronizat modelele din combo-uri",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Elimină automat modelele din combo-urile asociate atunci când sunt dezactivate, șterse sau retrase",
+  " Models removed or disabled are automatically pruned from combos.": " Modelele eliminate sau dezactivate sunt curățate automat din combo-uri."
 }

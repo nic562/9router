@@ -601,10 +601,27 @@ export default function ProviderDetailPage() {
         importedCount += 1;
       }
       
-      if (importedCount === 0) {
+      const upstreamCleanIds = new Set(models.map((m) => (m.id || m.name || "").replace(/^qoder\//, "")).filter(Boolean));
+      let prunedCount = 0;
+      try {
+        const settingsRes = await fetch("/api/settings");
+        const settings = settingsRes.ok ? await settingsRes.json() : {};
+        if (settings.syncRemoveFromCombosOnModelRemoval === true) {
+          const obsoleteCustom = (customModels || []).filter((m) => m.providerAlias === providerStorageAlias && !upstreamCleanIds.has(m.id));
+          for (const m of obsoleteCustom) {
+            await handleDeleteCustomModel(m.id, m.type || "llm", providerStorageAlias);
+            prunedCount += 1;
+          }
+        }
+      } catch {}
+
+      if (importedCount === 0 && prunedCount === 0) {
         alert(translate("All models already exist, no new models added"));
       } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+        let msg = "";
+        if (importedCount > 0) msg += translate("Successfully added") + ` ${importedCount} ` + translate("models");
+        if (prunedCount > 0) msg += (msg ? ", " : "") + `Removed ${prunedCount} decommissioned models from combos`;
+        alert(msg);
       }
     } catch (error) {
       console.log("Error importing Qoder models:", error);
@@ -648,10 +665,27 @@ export default function ProviderDetailPage() {
         await handleAddCustomModel(modelId, "llm", providerStorageAlias);
         importedCount += 1;
       }
-      if (importedCount === 0) {
+      const upstreamCleanIds = new Set(models.map((m) => (m.id || m.name || "").replace(/^(cline|clinepass)\//, "")).filter(Boolean));
+      let prunedCount = 0;
+      try {
+        const settingsRes = await fetch("/api/settings");
+        const settings = settingsRes.ok ? await settingsRes.json() : {};
+        if (settings.syncRemoveFromCombosOnModelRemoval === true) {
+          const obsoleteCustom = (customModels || []).filter((m) => m.providerAlias === providerStorageAlias && !upstreamCleanIds.has(m.id));
+          for (const m of obsoleteCustom) {
+            await handleDeleteCustomModel(m.id, m.type || "llm", providerStorageAlias);
+            prunedCount += 1;
+          }
+        }
+      } catch {}
+
+      if (importedCount === 0 && prunedCount === 0) {
         alert(translate("All models already exist, no new models added"));
       } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+        let msg = "";
+        if (importedCount > 0) msg += translate("Successfully added") + ` ${importedCount} ` + translate("models");
+        if (prunedCount > 0) msg += (msg ? ", " : "") + `Removed ${prunedCount} decommissioned models from combos`;
+        alert(msg);
       }
     } catch (error) {
       console.log("Error importing Cline models:", error);

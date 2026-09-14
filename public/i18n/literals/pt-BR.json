@@ -1133,5 +1133,8 @@
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ Aviso de Risco: Este provedor usa uma sessão de assinatura/OAuth não licenciada oficialmente para uso de proxy/roteador. A conta pode ser restrita ou banida. Use por sua conta e risco.",
   "Only Expose Combos": "Expor apenas modelos combinados",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "O catálogo externo /v1/models mostra apenas modelos combinados, ocultando modelos de provedores individuais",
-  " External /v1/models only lists combo models.": " O catálogo externo /v1/models lista apenas modelos combinados."
+  " External /v1/models only lists combo models.": " O catálogo externo /v1/models lista apenas modelos combinados.",
+  "Sync Remove Models from Combos": "Remover modelos dos combos de forma sincronizada",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Remover automaticamente modelos dos combos associados quando forem desativados, excluídos ou removidos",
+  " Models removed or disabled are automatically pruned from combos.": " Modelos removidos ou desativados são eliminados automaticamente dos combos."
 }

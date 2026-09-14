@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDisabledModels, disableModels, enableModels } from "@/lib/disabledModelsDb";
+import { getSettings, pruneModelsFromCombos } from "@/lib/localDb";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,10 @@ export async function POST(request) {
       return NextResponse.json({ error: "providerAlias and ids[] required" }, { status: 400 });
     }
     await disableModels(providerAlias, ids);
+    const settings = await getSettings();
+    if (settings?.syncRemoveFromCombosOnModelRemoval === true) {
+      await pruneModelsFromCombos(providerAlias, ids);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.log("Error disabling models:", error);

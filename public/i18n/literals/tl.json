@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Nakalantad ang endpoint nang walang API key.",
   "Only Expose Combos": "Ipakita Lamang ang mga Combo Model",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Ipinapakita lamang ng panlabas na /v1/models catalog ang mga combo model, itinatago ang mga indibidwal na provider model",
-  " External /v1/models only lists combo models.": " Naglilista lamang ang panlabas na /v1/models ng mga combo model."
+  " External /v1/models only lists combo models.": " Naglilista lamang ang panlabas na /v1/models ng mga combo model.",
+  "Sync Remove Models from Combos": "Isabay ang Pag-alis ng mga Modelo sa mga Combo",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Awtomatikong alisin ang mga modelo sa mga nauugnay na combo kapag hindi pinagana, binura, o inalis ang mga ito",
+  " Models removed or disabled are automatically pruned from combos.": " Ang mga tinanggal o hindi pinaganang modelo ay awtomatikong inaalis sa mga combo."
 }

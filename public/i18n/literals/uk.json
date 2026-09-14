@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Кінцеву точку відкрито без API-ключа.",
   "Only Expose Combos": "Показувати лише комбо-моделі",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Зовнішній каталог /v1/models показує лише комбо-моделі, приховуючи окремі моделі постачальників",
-  " External /v1/models only lists combo models.": " Зовнішній /v1/models містить лише комбо-моделі."
+  " External /v1/models only lists combo models.": " Зовнішній /v1/models містить лише комбо-моделі.",
+  "Sync Remove Models from Combos": "Синхронно видаляти моделі з комбо",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Автоматично видаляти моделі з пов'язаних комбо, якщо їх вимкнено, видалено або знято",
+  " Models removed or disabled are automatically pruned from combos.": " Видалені або вимкнені моделі автоматично виключаються з комбо."
 }

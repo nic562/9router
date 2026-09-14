@@ -22,6 +22,7 @@ export {
   createCombo,
   updateCombo,
   deleteCombo,
+  pruneModelsFromCombos,
   getModelAliases,
   setModelAlias,
   deleteModelAlias,
@@ -35,4 +36,6 @@ export {
   deleteApiKey,
   validateApiKey,
   isCloudEnabled,
+  getSettings,
+  updateSettings,
 } from "@/lib/localDb";

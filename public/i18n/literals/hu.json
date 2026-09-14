@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "A végpont API-kulcs nélkül van kitéve.",
   "Only Expose Combos": "Csak kombinált modellek megjelenítése",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "A külső /v1/models katalógus csak kombinált modelleket jelenít meg, elrejtve az egyes szolgáltatói modelleket",
-  " External /v1/models only lists combo models.": " A külső /v1/models csak kombinált modelleket sorol fel."
+  " External /v1/models only lists combo models.": " A külső /v1/models csak kombinált modelleket sorol fel.",
+  "Sync Remove Models from Combos": "Modellek szinkron eltávolítása a kombinációkból",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Modellek automatikus eltávolítása a kapcsolódó kombinációkból, ha letiltják, törlik vagy kivonják őket",
+  " Models removed or disabled are automatically pruned from combos.": " Az eltávolított vagy letiltott modellek automatikusan törlődnek a kombinációkból."
 }

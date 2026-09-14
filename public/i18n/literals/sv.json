@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Slutpunkten är exponerad utan en API-nyckel.",
   "Only Expose Combos": "Visa endast kombinationsmodeller",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Den externa /v1/models-katalogen visar endast kombinationsmodeller och döljer enskilda leverantörsmodeller",
-  " External /v1/models only lists combo models.": " Extern /v1/models listar endast kombinationsmodeller."
+  " External /v1/models only lists combo models.": " Extern /v1/models listar endast kombinationsmodeller.",
+  "Sync Remove Models from Combos": "Synkronisera borttagning av modeller från kombinationer",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Ta automatiskt bort modeller från associerade kombinationer när de inaktiveras, raderas eller tas bort",
+  " Models removed or disabled are automatically pruned from combos.": " Borttagna eller inaktiverade modeller rensas automatiskt från kombinationer."
 }

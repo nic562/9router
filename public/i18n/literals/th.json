@@ -1392,5 +1392,8 @@
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 ต้องใช้ OAuth เพิ่มตอนนี้แล้ว authenticate หลัง Apply; รายการเครื่องมือจะถูกค้นพบหลังการเชื่อมต่อครั้งแรก",
   "Only Expose Combos": "แสดงเฉพาะโมเดลคอมโบ",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "แคตตาล็อก /v1/models ภายนอกจะแสดงเฉพาะโมเดลคอมโบและซ่อนโมเดลของผู้ให้บริการแต่ละราย",
-  " External /v1/models only lists combo models.": " /v1/models ภายนอกแสดงเฉพาะโมเดลคอมโบเท่านั้น"
+  " External /v1/models only lists combo models.": " /v1/models ภายนอกแสดงเฉพาะโมเดลคอมโบเท่านั้น",
+  "Sync Remove Models from Combos": "ลบโมเดลออกจากคอมโบแบบซิงค์",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "ลบโมเดลออกจากคอมโบที่เกี่ยวข้องโดยอัตโนมัติเมื่อโมเดลถูกปิดใช้งาน ลบ หรือยกเลิก",
+  " Models removed or disabled are automatically pruned from combos.": " โมเดลที่ถูกลบหรือปิดใช้งานจะถูกตัดออกจากคอมโบโดยอัตโนมัติ"
 }

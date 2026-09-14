@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "API 키 없이 엔드포인트가 노출되어 있습니다.",
   "Only Expose Combos": "콤보 모델만 공개",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "외부 /v1/models 카탈로그에는 콤보 모델만 표시되며 개별 공급자 모델은 숨겨집니다",
-  " External /v1/models only lists combo models.": " 외부 /v1/models에는 콤보 모델만 나열됩니다。"
+  " External /v1/models only lists combo models.": " 외부 /v1/models에는 콤보 모델만 나열됩니다。",
+  "Sync Remove Models from Combos": "콤보에서 모델 동기 삭제",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "모델이 비활성화, 삭제 또는 제거될 때 연결된 콤보에서 자동으로 삭제합니다",
+  " Models removed or disabled are automatically pruned from combos.": " 제거되거나 비활성화된 모델은 콤보에서 자동으로 제외됩니다."
 }

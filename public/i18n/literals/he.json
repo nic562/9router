@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "נקודת הקצה חשופה ללא מפתח API.",
   "Only Expose Combos": "הצג מודלים משולבים בלבד",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "קטלוג /v1/models החיצוני מציג מודלים משולבים בלבד ומסתיר מודלים של ספקים בודדים",
-  " External /v1/models only lists combo models.": " קטלוג /v1/models החיצוני מפרט מודלים משולבים בלבד."
+  " External /v1/models only lists combo models.": " קטלוג /v1/models החיצוני מפרט מודלים משולבים בלבד.",
+  "Sync Remove Models from Combos": "הסרת מודלים משולבים בסנכרון",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "הסר אוטומטית מודלים משילובים קשורים כאשר הם מושבתים, נמחקים או מוסרים",
+  " Models removed or disabled are automatically pruned from combos.": " מודלים שהוסרו או הושבתו נמחקים אוטומטית מהשילובים."
 }

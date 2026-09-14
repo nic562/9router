@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCustomModels, addCustomModel, deleteCustomModel } from "@/models";
+import { getCustomModels, addCustomModel, deleteCustomModel, getSettings, pruneModelsFromCombos } from "@/models";
 import { CAPACITY_META } from "@/shared/constants/models";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +52,10 @@ export async function DELETE(request) {
       return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
     }
     await deleteCustomModel({ providerAlias, id, type });
+    const settings = await getSettings();
+    if (settings?.syncRemoveFromCombosOnModelRemoval === true) {
+      await pruneModelsFromCombos(providerAlias, [id]);
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.log("Error deleting custom model:", error);

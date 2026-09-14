@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Το τελικό σημείο είναι εκτεθειμένο χωρίς κλειδί API.",
   "Only Expose Combos": "Εμφάνιση μόνο συνδυαστικών μοντέλων",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Ο εξωτερικός κατάλογος /v1/models εμφανίζει μόνο συνδυαστικά μοντέλα, αποκρύπτοντας μεμονωμένα μοντέλα παρόχων",
-  " External /v1/models only lists combo models.": " Ο εξωτερικός κατάλογος /v1/models παραθέτει μόνο συνδυαστικά μοντέλα."
+  " External /v1/models only lists combo models.": " Ο εξωτερικός κατάλογος /v1/models παραθέτει μόνο συνδυαστικά μοντέλα.",
+  "Sync Remove Models from Combos": "Συγχρονισμένη αφαίρεση μοντέλων από συνδυασμούς",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Αυτόματη αφαίρεση μοντέλων από συσχετισμένους συνδυασμούς όταν απενεργοποιούνται, διαγράφονται ή αποσύρονται",
+  " Models removed or disabled are automatically pruned from combos.": " Τα μοντέλα που καταργήθηκαν ή απενεργοποιήθηκαν αφαιρούνται αυτόματα από τους συνδυασμούς."
 }

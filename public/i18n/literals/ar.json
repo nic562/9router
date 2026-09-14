@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "نقطة النهاية مكشوفة بدون مفتاح API.",
   "Only Expose Combos": "إظهار النماذج المجمعة فقط",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "يعرض كتالوج /v1/models الخارجي النماذج المجمعة فقط، ويخفي نماذج المزودين الفردية",
-  " External /v1/models only lists combo models.": " يعرض /v1/models الخارجي النماذج المجمعة فقط."
+  " External /v1/models only lists combo models.": " يعرض /v1/models الخارجي النماذج المجمعة فقط.",
+  "Sync Remove Models from Combos": "مزامنة إزالة النماذج من المجموعات",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "إزالة النماذج تلقائيًا من المجموعات المرتبطة عند تعطيلها أو حذفها أو إزالتها",
+  " Models removed or disabled are automatically pruned from combos.": " تتم إزالة النماذج المحذوفة أو المعطلة تلقائيًا من المجموعات."
 }

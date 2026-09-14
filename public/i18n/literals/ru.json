@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Эндпоинт открыт без API-ключа.",
   "Only Expose Combos": "Показывать только комбо-модели",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Внешний каталог /v1/models показывает только комбо-модели, скрывая отдельные модели провайдеров",
-  " External /v1/models only lists combo models.": " Внешний /v1/models содержит только комбо-модели."
+  " External /v1/models only lists combo models.": " Внешний /v1/models содержит только комбо-модели.",
+  "Sync Remove Models from Combos": "Синхронно удалять модели из комбо",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Автоматически удалять модели из связанных комбо при их отключении, удалении или выводе из эксплуатации",
+  " Models removed or disabled are automatically pruned from combos.": " Удаленные или отключенные модели автоматически исключаются из комбо."
 }

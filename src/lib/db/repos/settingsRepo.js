@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   comboStickyRoundRobinLimit: 1,
   comboStrategies: {},
   onlyExposeComboModels: false,
+  syncRemoveFromCombosOnModelRemoval: false,
   capacityAdapter: {
     vision: { enabled: true, roundRobin: false, models: [] },
     pdf: { enabled: false, roundRobin: false, models: [] },

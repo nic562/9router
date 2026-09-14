@@ -1392,5 +1392,8 @@
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 نیاز به OAuth. اکنون اضافه کنید و پس از اعمال، احراز هویت کنید؛ لیست ابزارها پس از اولین اتصال کشف می‌شود.",
   "Only Expose Combos": "نمایش فقط مدل‌های ترکیبی",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "کاتالوگ خارجی /v1/models فقط مدل‌های ترکیبی را نشان می‌دهد و مدل‌های ارائه‌دهنده را پنهان می‌کند",
-  " External /v1/models only lists combo models.": " کاتالوگ خارجی /v1/models فقط مدل‌های ترکیبی را فهرست می‌کند."
+  " External /v1/models only lists combo models.": " کاتالوگ خارجی /v1/models فقط مدل‌های ترکیبی را فهرست می‌کند.",
+  "Sync Remove Models from Combos": "حذف همگام مدل‌ها از ترکیب‌ها",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "هنگامی که مدل‌ها غیرفعال، حذف یا برچیده می‌شوند، به‌طور خودکار آن‌ها را از ترکیب‌های مرتبط حذف کنید",
+  " Models removed or disabled are automatically pruned from combos.": " مدل‌های حذف‌شده یا غیرفعال‌شده به‌طور خودکار از ترکیب‌ها پاک می‌شوند."
 }

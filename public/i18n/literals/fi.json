@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Päätepiste on alttiina ilman API-avainta.",
   "Only Expose Combos": "Näytä vain yhdistelmämallit",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Ulkoinen /v1/models-luettelo näyttää vain yhdistelmämallit ja piilottaa yksittäiset palveluntarjoajamallit",
-  " External /v1/models only lists combo models.": " Ulkoinen /v1/models luettelee vain yhdistelmämallit."
+  " External /v1/models only lists combo models.": " Ulkoinen /v1/models luettelee vain yhdistelmämallit.",
+  "Sync Remove Models from Combos": "Poista mallit synkronoidusti yhdistelmistä",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Poista mallit automaattisesti niihin liittyvistä yhdistelmistä, kun ne poistetaan käytöstä, poistetaan tai lakkautetaan",
+  " Models removed or disabled are automatically pruned from combos.": " Poistetut tai käytöstä poistetut mallit karsitaan automaattisesti yhdistelmistä."
 }

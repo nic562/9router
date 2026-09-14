@@ -196,5 +196,8 @@
   "Endpoint is exposed without an API key.": "Uç nokta API anahtarı olmadan açıkta.",
   "Only Expose Combos": "Yalnızca Kombo Modelleri Göster",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "Harici /v1/models kataloğu yalnızca kombo modelleri gösterir, bireysel sağlayıcı modellerini gizler",
-  " External /v1/models only lists combo models.": " Harici /v1/models yalnızca kombo modelleri listeler."
+  " External /v1/models only lists combo models.": " Harici /v1/models yalnızca kombo modelleri listeler.",
+  "Sync Remove Models from Combos": "Modelleri kombolardan eşzamanlı kaldır",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "Modeller devre dışı bırakıldığında, silindiğinde veya kaldırıldığında ilişkili kombolardan otomatik olarak kaldırın",
+  " Models removed or disabled are automatically pruned from combos.": " Kaldırılan veya devre dışı bırakılan modeller kombolardan otomatik olarak temizlenir."
 }

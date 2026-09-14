@@ -1393,5 +1393,8 @@
   "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 需要 OAuth。立即添加并在应用后认证；工具列表将在首次连接后自动发现。",
   "Only Expose Combos": "对外仅可见组合模型",
   "External /v1/models catalog only shows combo models, hiding individual provider models": "对外 /v1/models 模型列表仅展示组合模型，隐藏底层供应商模型",
-  " External /v1/models only lists combo models.": " 对外 /v1/models 仅展示组合模型。"
+  " External /v1/models only lists combo models.": " 对外 /v1/models 仅展示组合模型。",
+  "Sync Remove Models from Combos": "同步从组合中移除模型",
+  "Automatically remove models from associated combos when they are disabled, deleted, or removed": "当模型被禁用、删除或下线时，自动从关联的组合中同步移除",
+  " Models removed or disabled are automatically pruned from combos.": " 已移除或禁用的模型会自动从组合中剔除。"
 }
