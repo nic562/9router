@@ -328,6 +328,21 @@ export default function ProfilePage() {
     }
   };
 
+  const updateOnlyExposeComboModels = async (onlyExposeComboModels) => {
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onlyExposeComboModels }),
+      });
+      if (res.ok) {
+        setSettings(prev => ({ ...prev, onlyExposeComboModels }));
+      }
+    } catch (err) {
+      console.error("Failed to update onlyExposeComboModels:", err);
+    }
+  };
+
   const updateRequireLogin = async (requireLogin) => {
     try {
       const res = await fetch("/api/settings", {
@@ -1515,6 +1530,21 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* Only Expose Combos */}
+            <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base">Only Expose Combos</p>
+                <p className="text-xs sm:text-sm text-text-muted">
+                  External /v1/models catalog only shows combo models, hiding individual provider models
+                </p>
+              </div>
+              <Toggle
+                checked={settings.onlyExposeComboModels === true}
+                onChange={() => updateOnlyExposeComboModels(!settings.onlyExposeComboModels)}
+                disabled={loading}
+              />
+            </div>
+
             <p className="text-xs text-text-muted italic pt-2 border-t border-border/50">
               {settings.fallbackStrategy === "round-robin"
                 ? `Currently distributing requests across all available accounts with ${settings.stickyRoundRobinLimit || 3} calls per account.`
@@ -1522,6 +1552,9 @@ export default function ProfilePage() {
               {settings.comboStrategy === "round-robin"
                 ? ` Combos rotate after ${settings.comboStickyRoundRobinLimit || 1} call${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"} per model.`
                 : " Combos always start with their first model."}
+              {settings.onlyExposeComboModels
+                ? " External /v1/models only lists combo models."
+                : ""}
             </p>
           </div>
         </Card>

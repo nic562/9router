@@ -1389,5 +1389,8 @@
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ اطلاعیه ریسک: این ارائه‌دهنده از اشتراک/جلسه OAuth استفاده می‌کند که به طور رسمی برای استفاده پروکسی/روتر مجوز ندارد. حساب ممکن است محدود یا مسدود شود. با مسئولیت خود استفاده کنید.",
   "✓ Confirm Add": "✓ تأیید افزودن",
   "📝 Configure providers in dashboard or use environment variables": "📝 ارائه‌دهندگان را در داشبورد پیکربندی کنید یا از متغیرهای محیطی استفاده کنید",
-  "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 نیاز به OAuth. اکنون اضافه کنید و پس از اعمال، احراز هویت کنید؛ لیست ابزارها پس از اولین اتصال کشف می‌شود."
+  "🔐 OAuth required. Add now and authenticate after Apply; tool list will be discovered after first connect.": "🔐 نیاز به OAuth. اکنون اضافه کنید و پس از اعمال، احراز هویت کنید؛ لیست ابزارها پس از اولین اتصال کشف می‌شود.",
+  "Only Expose Combos": "نمایش فقط مدل‌های ترکیبی",
+  "External /v1/models catalog only shows combo models, hiding individual provider models": "کاتالوگ خارجی /v1/models فقط مدل‌های ترکیبی را نشان می‌دهد و مدل‌های ارائه‌دهنده را پنهان می‌کند",
+  " External /v1/models only lists combo models.": " کاتالوگ خارجی /v1/models فقط مدل‌های ترکیبی را فهرست می‌کند."
 }

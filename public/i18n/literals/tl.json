@@ -193,5 +193,8 @@
   "Click to add, click again to remove. Changes are saved automatically.": "I-click para idagdag, i-click muli para alisin. Ang mga pagbabago ay awtomatikong nase-save.",
   "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.": "⚠️ Babala sa Panganib: Ang provider na ito ay gumagamit ng subscription/OAuth session na hindi opisyal na lisensyado para sa proxy/router na paggamit. Maaaring marestrikta o ma-ban ang account. Gamitin sa sarili mong panganib.",
   "⚠️ MITM intercepts HTTPS traffic of IDE tools (Antigravity, GitHub Copilot, Kiro) via local CA to redirect requests to your providers. May violate ToS → account ban. Use at your own risk.": "⚠️ Hinaharang ng MITM ang HTTPS traffic ng mga IDE tool (Antigravity, GitHub Copilot, Kiro) sa pamamagitan ng lokal na CA upang i-redirect ang mga kahilingan sa iyong mga provider. Maaaring lumabag sa ToS → panganib ng pag-ban sa account. Gamitin sa sarili mong panganib.",
-  "Endpoint is exposed without an API key.": "Nakalantad ang endpoint nang walang API key."
+  "Endpoint is exposed without an API key.": "Nakalantad ang endpoint nang walang API key.",
+  "Only Expose Combos": "Ipakita Lamang ang mga Combo Model",
+  "External /v1/models catalog only shows combo models, hiding individual provider models": "Ipinapakita lamang ng panlabas na /v1/models catalog ang mga combo model, itinatago ang mga indibidwal na provider model",
+  " External /v1/models only lists combo models.": " Naglilista lamang ang panlabas na /v1/models ng mga combo model."
 }

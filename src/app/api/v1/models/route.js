@@ -5,7 +5,7 @@ import {
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
-import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
+import { getProviderConnections, getCombos, getCustomModels, getModelAliases, getSettings } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
@@ -256,12 +256,15 @@ export async function buildModelsList(kindFilter, options = {}) {
   // 9router instance's fetchCompatibleModelIds — skip dynamic fetch to break
   // cross-instance recursive loops.
   const skipDynamicFetch = options.skipDynamicFetch === true;
-  let connections = [];
-  try {
-    connections = await getProviderConnections();
-    connections = connections.filter(c => c.isActive !== false);
-  } catch (e) {
-    console.log("Could not fetch providers, returning all models");
+
+  let onlyExposeComboModels = options.onlyExposeComboModels;
+  if (typeof onlyExposeComboModels !== "boolean") {
+    try {
+      const settings = await getSettings();
+      onlyExposeComboModels = settings?.onlyExposeComboModels === true;
+    } catch {
+      onlyExposeComboModels = false;
+    }
   }
 
   let combos = [];
@@ -269,6 +272,41 @@ export async function buildModelsList(kindFilter, options = {}) {
     combos = await getCombos();
   } catch (e) {
     console.log("Could not fetch combos");
+  }
+
+  const models = [];
+
+  // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
+  for (const combo of combos) {
+    if (!comboMatchesKinds(combo, kindFilter)) continue;
+    const entry = {
+      id: combo.name,
+      object: "model",
+      owned_by: "combo",
+    };
+    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
+      entry.kind = combo.kind;
+    }
+    models.push(entry);
+  }
+
+  if (onlyExposeComboModels) {
+    const dedupedModels = [];
+    const seenModelIds = new Set();
+    for (const model of models) {
+      if (!model?.id || seenModelIds.has(model.id)) continue;
+      seenModelIds.add(model.id);
+      dedupedModels.push(model);
+    }
+    return dedupedModels;
+  }
+
+  let connections = [];
+  try {
+    connections = await getProviderConnections();
+    connections = connections.filter(c => c.isActive !== false);
+  } catch (e) {
+    console.log("Could not fetch providers, returning all models");
   }
 
   let customModels = [];
@@ -298,22 +336,6 @@ export async function buildModelsList(kindFilter, options = {}) {
     if (!activeConnectionByProvider.has(conn.provider)) {
       activeConnectionByProvider.set(conn.provider, conn);
     }
-  }
-
-  const models = [];
-
-  // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
-  for (const combo of combos) {
-    if (!comboMatchesKinds(combo, kindFilter)) continue;
-    const entry = {
-      id: combo.name,
-      object: "model",
-      owned_by: "combo",
-    };
-    if (combo.kind === "webSearch" || combo.kind === "webFetch") {
-      entry.kind = combo.kind;
-    }
-    models.push(entry);
   }
 
   if (connections.length === 0) {
