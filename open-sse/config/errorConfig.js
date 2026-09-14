@@ -10,7 +10,8 @@ export const ERROR_TYPES = {
   500: { type: "server_error", code: "internal_server_error" },
   502: { type: "server_error", code: "bad_gateway" },
   503: { type: "server_error", code: "service_unavailable" },
-  504: { type: "server_error", code: "gateway_timeout" }
+  504: { type: "server_error", code: "gateway_timeout" },
+  499: { type: "invalid_request_error", code: "client_closed_request" }
 };
 
 // Default error messages per status code (client-facing)
@@ -25,7 +26,8 @@ export const DEFAULT_ERROR_MESSAGES = {
   500: "Internal server error",
   502: "Bad gateway - upstream provider error",
   503: "Service temporarily unavailable",
-  504: "Gateway timeout"
+  504: "Gateway timeout",
+  499: "Client closed request"
 };
 
 // Exponential backoff config for rate limits
@@ -48,7 +50,7 @@ const COOLDOWN = {
 };
 
 // Client errors that must be terminal and never trigger account/combo fallback
-export const NON_FALLBACK_STATUSES = new Set([400, 405, 413, 415, 422]);
+export const NON_FALLBACK_STATUSES = new Set([400, 405, 413, 415, 422, 499]);
 
 /**
  * Unified error classification rules.
@@ -80,6 +82,7 @@ export const ERROR_RULES = [
   { status: 413, fallback: false, cooldownMs: 0 },
   { status: 415, fallback: false, cooldownMs: 0 },
   { status: 422, fallback: false, cooldownMs: 0 },
+  { status: 499, fallback: false, cooldownMs: 0 },
   { status: 429, backoff: true },
 ];
 

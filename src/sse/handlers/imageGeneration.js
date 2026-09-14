@@ -110,6 +110,7 @@ export async function handleImageGeneration(request) {
         }),
       log,
       comboName: modelStr,
+      signal: request?.signal,
       comboStrategy,
       comboStickyLimit,
     });

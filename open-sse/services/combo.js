@@ -277,7 +277,7 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @param {number|string} [options.comboStickyLimit=1] - Requests per combo model before switching
  * @returns {Promise<Response>}
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, signal = null }) {
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 
@@ -298,6 +298,14 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   let lastStatus = null;
 
   for (let i = 0; i < rotatedModels.length; i++) {
+    if (signal?.aborted) {
+      log.warn("COMBO", `Client disconnected (${signal.reason || "aborted"}), terminating combo fallback`);
+      return new Response(
+        JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+        { status: 499, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const modelStr = rotatedModels[i];
     log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
@@ -353,6 +361,13 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       if (!lastStatus) lastStatus = result.status;
       log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
     } catch (error) {
+      if (signal?.aborted || error.name === "AbortError") {
+        log.warn("COMBO", `Model ${modelStr} aborted (${error.message || "client closed"}), stopping fallback`);
+        return new Response(
+          JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+          { status: 499, headers: { "Content-Type": "application/json" } }
+        );
+      }
       // Catch unexpected exceptions to ensure fallback continues
       lastError = error.message || String(error);
       if (!lastStatus) lastStatus = 500;

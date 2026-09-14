@@ -57,6 +57,7 @@ export async function handleTts(request) {
       handleSingleModel: (b, m) => handleSingleModelTts(b, m, responseFormat, language, style),
       log,
       comboName: modelStr,
+      signal: request?.signal,
       comboStrategy,
       comboStickyLimit,
     });

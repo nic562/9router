@@ -82,6 +82,7 @@ export async function handleSearch(request) {
       handleSingleModel: (b, m) => handleSingleProviderSearch(b, m, request, apiKey, settings),
       log,
       comboName: providerInput,
+      signal: request?.signal,
       comboStrategy,
       comboStickyLimit
     });

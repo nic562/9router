@@ -102,6 +102,7 @@ export async function handleFetch(request) {
       handleSingleModel: (b, m) => handleSingleProviderFetch(b, m, request, apiKey, settings),
       log,
       comboName: providerInput,
+      signal: request?.signal,
       comboStrategy,
       comboStickyLimit
     });
