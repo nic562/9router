@@ -10,7 +10,7 @@ import { PROVIDER_MODELS, getModelsByProviderId } from "../../open-sse/config/pr
 import { PROVIDER_MEDIA } from "../../open-sse/providers/index.js";
 
 const EXPECTED_LLM_IDS = ["agnes-2.0-flash", "agnes-2.5-flash"];
-const EXPECTED_IMAGE_IDS = ["agnes-image-2.0-flash", "agnes-image-2.1-flash"];
+const EXPECTED_IMAGE_IDS = ["agnes-image-2.0-flash", "agnes-image-2.1-flash", "agnes-image-2.5-flash"];
 const EXPECTED_VIDEO_IDS = ["agnes-video-v2.0", "agnes-video-2.5-flash"];
 const ALL_IDS = [...EXPECTED_LLM_IDS, ...EXPECTED_IMAGE_IDS, ...EXPECTED_VIDEO_IDS];
 

@@ -64,7 +64,7 @@ export default {
   buildBody: (model, body) => {
     const { prompt } = body;
     const modelName = model || "agnes-image-2.0-flash";
-    const is21 = modelName.includes("2.1");
+    const isModern = modelName.includes("2.1") || modelName.includes("2.5");
     const rawRatio = body.ratio || body.aspect_ratio;
     const ratio = rawRatio && rawRatio !== "auto" ? rawRatio : null;
     let size = body.size;
@@ -74,7 +74,7 @@ export default {
       prompt,
     };
 
-    if (is21) {
+    if (isModern) {
       // === Agnes Image 2.1 Flash ===
       // Supports size tiers: "1K", "2K", "3K", "4K" and ratio: "1:1", "3:4", "4:3", "16:9", etc.
       // Also backwards compatible with exact dimensions like "1024x1024"

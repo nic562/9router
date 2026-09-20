@@ -38,6 +38,13 @@ export default {
       params: ["size", "ratio", "image", "extra_body", "return_base64"],
     },
     {
+      id: "agnes-image-2.5-flash",
+      name: "Agnes Image 2.5 Flash",
+      kind: "image",
+      capabilities: ["text2img", "edit", "multi_image"],
+      params: ["size", "ratio", "image", "extra_body", "return_base64"],
+    },
+    {
       id: "agnes-video-v2.0",
       name: "Agnes Video v2.0",
       kind: "video",
