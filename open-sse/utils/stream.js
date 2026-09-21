@@ -499,3 +499,4 @@ export function createPassthroughStreamWithLogger(provider = null, reqLogger = n
     apiKey
   });
 }
+import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
