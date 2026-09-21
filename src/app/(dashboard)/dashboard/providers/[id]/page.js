@@ -584,6 +584,30 @@ export default function ProviderDetailPage() {
     }
   };
 
+  const handleClearAllModels = async (providerAliasOverride = providerStorageAlias) => {
+    try {
+      // 1. Delete all custom models for this provider
+      const params = new URLSearchParams({ providerAlias: providerAliasOverride, all: "true" });
+      await fetch(`/api/models/custom?${params}`, { method: "DELETE" });
+
+      // 2. Delete all model aliases associated with this provider
+      const prefix = `${providerAliasOverride}/`;
+      for (const [alias, fullModel] of Object.entries(modelAliases || {})) {
+        if (typeof fullModel === "string" && fullModel.startsWith(prefix)) {
+          try {
+            await fetch(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
+          } catch {}
+        }
+      }
+
+      await fetchCustomModels();
+      await fetchAliases();
+      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("customModelChanged"));
+    } catch (error) {
+      console.log("Error clearing all models:", error);
+    }
+  };
+
   // Fetch Qoder model list and automatically add to available models
   const handleImportQoderModels = async () => {
     if (importingQoderModels) return;
@@ -1190,8 +1214,9 @@ export default function ProviderDetailPage() {
           onCopy={copy}
           onSetAlias={handleSetAlias}
           onDeleteAlias={handleDeleteAlias}
-          onAddCustomModel={(modelId) => handleAddCustomModel(modelId, "llm", providerStorageAlias)}
-          onDeleteCustomModel={(modelId) => handleDeleteCustomModel(modelId, "llm", providerStorageAlias)}
+          onAddCustomModel={(modelId, type = "llm") => handleAddCustomModel(modelId, type, providerStorageAlias)}
+          onDeleteCustomModel={(modelId, type = "llm") => handleDeleteCustomModel(modelId, type, providerStorageAlias)}
+          onClearAllModels={() => handleClearAllModels(providerStorageAlias)}
           connections={connections}
           isAnthropic={isAnthropicCompatible}
         />

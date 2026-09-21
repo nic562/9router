@@ -1,3 +1,4 @@
+import openaiCompatNode from "./openaiCompatNode.js";
 // Image provider adapter registry
 import createOpenAIAdapter from "./openai.js";
 import gemini from "./gemini.js";
@@ -37,9 +38,15 @@ const ADAPTERS = {
 };
 
 export function getImageAdapter(provider) {
-  return ADAPTERS[provider] || null;
+  if (ADAPTERS[provider]) return ADAPTERS[provider];
+  if (provider?.startsWith?.("openai-compatible-") || provider?.startsWith?.("custom-image-")) {
+    return openaiCompatNode;
+  }
+  return null;
 }
 
 export function isImageProvider(provider) {
-  return provider in ADAPTERS;
+  if (provider in ADAPTERS) return true;
+  if (provider?.startsWith?.("openai-compatible-") || provider?.startsWith?.("custom-image-")) return true;
+  return false;
 }

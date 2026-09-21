@@ -6,7 +6,7 @@ import Modal from "@/shared/components/Modal";
 import Input from "@/shared/components/Input";
 import Button from "@/shared/components/Button";
 import Badge from "@/shared/components/Badge";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import Select from "@/shared/components/Select";
 
 export default function EditConnectionModal({ isOpen, connection, proxyPools, onSave, onClose }) {
@@ -23,6 +23,7 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   });
   const [cloudflareData, setCloudflareData] = useState({ accountId: "" });
   const [region, setRegion] = useState("");
+  const [selectedServiceKinds, setSelectedServiceKinds] = useState([]);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [validating, setValidating] = useState(false);
@@ -49,11 +50,17 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
         setCloudflareData({ accountId: connection.providerSpecificData.accountId || "" });
       }
       // Load region for providers that support it (e.g. xiaomi-tokenplan)
-      const providerCfg = AI_PROVIDERS?.[connection.provider];
-      if (providerCfg?.regions) {
-        const savedRegion = connection.providerSpecificData?.region || providerCfg.defaultRegion || providerCfg.regions[0]?.id || "";
+      const cfg = AI_PROVIDERS?.[connection.provider];
+      if (cfg?.regions) {
+        const savedRegion = connection.providerSpecificData?.region || cfg.defaultRegion || cfg.regions[0]?.id || "";
         setRegion(savedRegion);
       }
+      const pKinds = cfg?.serviceKinds || (isOpenAICompatibleProvider(connection.provider) ? ["llm", "image"] : ["llm"]);
+      setSelectedServiceKinds(
+        Array.isArray(connection.serviceKinds) && connection.serviceKinds.length > 0
+          ? connection.serviceKinds
+          : pKinds
+      );
       setTestResult(null);
       setValidationResult(null);
     }
@@ -65,7 +72,8 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
   const isCompatible = connection
     ? (isOpenAICompatibleProvider(connection.provider) || isAnthropicCompatibleProvider(connection.provider))
     : false;
-  const providerRegions = connection ? (AI_PROVIDERS?.[connection.provider]?.regions || null) : null;
+  const providerCfg = connection ? AI_PROVIDERS?.[connection.provider] : null;
+  const providerRegions = providerCfg?.regions || null;
 
   // Build providerSpecificData for region-aware providers
   const buildRegionSpecificData = () => {
@@ -117,9 +125,12 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
     if (!connection) return;
     setSaving(true);
     try {
+      const allKinds = providerCfg?.serviceKinds || (isOpenAICompatibleProvider(connection.provider) ? ["llm", "image"] : ["llm"]);
+      const hasKindFilter = allKinds.length > 1;
       const updates = {
         name: formData.name,
         priority: formData.priority,
+        ...(hasKindFilter ? { serviceKinds: selectedServiceKinds } : {}),
       };
       if (!isOAuth && formData.apiKey) {
         updates.apiKey = formData.apiKey;
@@ -271,6 +282,46 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
             onChange={(e) => setRegion(e.target.value)}
             options={providerRegions.map((r) => ({ value: r.id, label: r.label }))}
           />
+        )}
+
+        {((providerCfg?.serviceKinds?.length > 1) || isOpenAICompatibleProvider(connection?.provider)) && (
+          <div>
+            <label className="text-xs text-text-muted mb-1.5 block">Allowed Services (Enabled Capabilities)</label>
+            <div className="flex flex-wrap gap-2">
+              {(providerCfg?.serviceKinds || ["llm", "image"]).map((k) => {
+                const checked = selectedServiceKinds.includes(k);
+                const label = k === "llm" ? "Chat / LLM" : (MEDIA_PROVIDER_KINDS.find((m) => m.id === k)?.label || k);
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      if (checked) {
+                        if (selectedServiceKinds.length > 1) {
+                          setSelectedServiceKinds(selectedServiceKinds.filter((item) => item !== k));
+                        }
+                      } else {
+                        setSelectedServiceKinds([...selectedServiceKinds, k]);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                      checked
+                        ? "bg-primary/10 border-primary/40 text-primary"
+                        : "bg-surface border-border text-text-muted hover:border-text-muted/40"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {checked ? "check_box" : "check_box_outline_blank"}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-text-muted mt-1.5">
+              Uncheck services if this API key should not be used for them (e.g. disable Image generation to prevent paid usage).
+            </p>
+          </div>
         )}
 
         {!isCompatible && !isAzure && !isCloudflareAi && (

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCustomModels, addCustomModel, deleteCustomModel, getSettings, pruneModelsFromCombos } from "@/models";
+import { getCustomModels, addCustomModel, deleteCustomModel, deleteAllCustomModels, getSettings, pruneModelsFromCombos } from "@/models";
 import { CAPACITY_META } from "@/shared/constants/models";
 
 export const dynamic = "force-dynamic";
@@ -41,17 +41,33 @@ export async function POST(request) {
   }
 }
 
-// DELETE /api/models/custom?providerAlias=xxx&id=yyy&type=zzz
+// DELETE /api/models/custom?providerAlias=xxx&id=yyy&type=zzz or ?providerAlias=xxx&all=true
 export async function DELETE(request) {
   try {
     const { searchParams } = new URL(request.url);
     const providerAlias = searchParams.get("providerAlias");
     const id = searchParams.get("id");
-    const type = searchParams.get("type") || "llm";
-    if (!providerAlias || !id) {
-      return NextResponse.json({ error: "providerAlias and id required" }, { status: 400 });
+    const all = searchParams.get("all") === "true";
+    const type = searchParams.get("type"); // optional if clearing all
+
+    if (!providerAlias) {
+      return NextResponse.json({ error: "providerAlias required" }, { status: 400 });
     }
-    await deleteCustomModel({ providerAlias, id, type });
+
+    if (all) {
+      const removedIds = await deleteAllCustomModels(providerAlias, type || null);
+      const settings = await getSettings();
+      if (settings?.syncRemoveFromCombosOnModelRemoval === true && removedIds.length > 0) {
+        await pruneModelsFromCombos(providerAlias, removedIds);
+      }
+      return NextResponse.json({ success: true, count: removedIds.length });
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+
+    await deleteCustomModel({ providerAlias, id, type: type || "llm" });
     const settings = await getSettings();
     if (settings?.syncRemoveFromCombosOnModelRemoval === true) {
       await pruneModelsFromCombos(providerAlias, [id]);

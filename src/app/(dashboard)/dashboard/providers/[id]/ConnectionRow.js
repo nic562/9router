@@ -170,6 +170,11 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <Badge variant="default" size="sm">
               {authLabel}
             </Badge>
+            {Array.isArray(connection.serviceKinds) && connection.serviceKinds.length > 0 && (
+              <span className="text-[10px] text-text-muted bg-sidebar px-1.5 py-0.5 rounded font-mono" title={`Scoped to: ${connection.serviceKinds.join(", ")}`}>
+                {connection.serviceKinds.map(k => k === "llm" ? "chat" : k).join("/")}
+              </span>
+            )}
             {hasAnyProxy && (
               <Badge variant={proxyBadgeVariant} size="sm">
                 Proxy

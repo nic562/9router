@@ -82,21 +82,28 @@ export default function ModelSelectModal({
   addedModelValues = [],
   closeOnSelect = true,
 }) {
-  // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
-  const filteredActiveProviders = useMemo(() => {
-    if (!kindFilter) return activeProviders;
-    return activeProviders.filter((p) => {
-      const info = AI_PROVIDERS[p.provider];
-      const kinds = info?.serviceKinds || ["llm"];
-      return kinds.includes(kindFilter);
-    });
-  }, [activeProviders, kindFilter]);
   const { getCaps } = useModelCaps();
   const [searchQuery, setSearchQuery] = useState("");
   const [combos, setCombos] = useState([]);
   const [providerNodes, setProviderNodes] = useState([]);
   const [customModels, setCustomModels] = useState([]);
   const [disabledModels, setDisabledModels] = useState({});
+
+  // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
+  const filteredActiveProviders = useMemo(() => {
+    if (!kindFilter) return activeProviders;
+    const typedKinds = new Set(["image", "tts", "stt", "embedding", "imageToText"]);
+    return activeProviders.filter((p) => {
+      if (isOpenAICompatibleProvider(p.provider)) {
+        // If node has custom models of this kind or connection allows it
+        const hasKindModel = customModels.some((m) => m.providerAlias === p.provider && getModelKind(m) === kindFilter);
+        return hasKindModel || !typedKinds.has(kindFilter);
+      }
+      const info = AI_PROVIDERS[p.provider];
+      const kinds = info?.serviceKinds || ["llm"];
+      return kinds.includes(kindFilter);
+    });
+  }, [activeProviders, kindFilter, customModels]);
   // Cursor and Cline expose the usable catalog per account, so the static catalog is
   // kept only as a fallback: it goes stale quickly and entitlements differ per account.
   // Single map driven by LIVE_CATALOG_PROVIDERS so the constant cannot drift
@@ -299,8 +306,11 @@ export default function ModelSelectModal({
           };
         }
       } else if (isCustomProvider) {
-        // Custom (openai/anthropic-compatible) providers are LLM-only — skip for typed media kinds
-        if (kindFilter && TYPED_KINDS.has(kindFilter)) return;
+        // Custom (openai/anthropic-compatible) providers: only allow if not a typed kind, or if it has custom models matching kindFilter
+        const hasMatchingCustomModel = kindFilter && customModels.some(
+          (m) => m.providerAlias === providerId && getModelKind(m) === kindFilter
+        );
+        if (kindFilter && TYPED_KINDS.has(kindFilter) && !hasMatchingCustomModel) return;
         // Find connection object to get prefix synchronously without waiting for providerNodes fetch
         const connection = activeProviders.find(p => p.provider === providerId);
         const matchedNode = providerNodes.find(node => node.id === providerId);
@@ -325,14 +335,18 @@ export default function ModelSelectModal({
             id: m.id,
             name: m.name || m.id,
             value: `${nodePrefix}/${m.id}`,
+            kind: getModelKind(m),
             isCustom: true,
           }));
         const seen = new Set(nodeModels.map((m) => m.value));
         const mergedModels = [...nodeModels, ...registeredCustom.filter((m) => !seen.has(m.value))];
+        const filteredMergedModels = filterByKind(mergedModels);
+
+        if (kindFilter && TYPED_KINDS.has(kindFilter) && filteredMergedModels.length === 0) return;
 
         // Always show compatible providers that are connected, even with no aliases.
         // When no aliases exist, show a placeholder so users know it's available.
-        const modelsToShow = mergedModels.length > 0 ? mergedModels : [{
+        const modelsToShow = filteredMergedModels.length > 0 ? filteredMergedModels : [{
           id: `__placeholder__${providerId}`,
           name: `${nodePrefix}/model-id`,
           value: `${nodePrefix}/model-id`,

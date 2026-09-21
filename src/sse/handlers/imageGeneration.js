@@ -181,7 +181,7 @@ async function handleSingleModelImage(
   let lastConnectionId = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId, kind: "image" });
 
     if (!credentials || credentials.allRateLimited) {
       const latencyMs = Date.now() - reqStartTime;

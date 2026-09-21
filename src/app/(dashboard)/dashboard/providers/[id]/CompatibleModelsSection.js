@@ -1,8 +1,10 @@
 "use client";
 
+import { inferModelKind } from "@/shared/constants/models";
+
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button } from "@/shared/components";
+import { Button, ConfirmModal } from "@/shared/components";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
 function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }) {
   const borderColor = testStatus === "ok"
@@ -71,10 +73,12 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
   );
 }
 
-export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, connections, isAnthropic }) {
+export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, onClearAllModels, connections, isAnthropic }) {
   const [newModel, setNewModel] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [testingModelId, setTestingModelId] = useState(null);
   const [modelTestResults, setModelTestResults] = useState({});
 
@@ -82,10 +86,14 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     if (testingModelId) return;
     setTestingModelId(modelId);
     try {
+      const modelRow = allModels.find((m) => m.id === modelId);
       const res = await fetch("/api/models/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }),
+        body: JSON.stringify({
+          model: `${providerStorageAlias}/${modelId}`,
+          kind: modelRow?.type || inferModelKind(modelId) || "llm",
+        }),
       });
       const data = await res.json();
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
@@ -100,7 +108,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     customModels,
     modelAliases,
     providerAlias: providerStorageAlias,
-    type: "llm",
+    type: null,
   });
 
   const handleAdd = async () => {
@@ -113,7 +121,8 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
 
     setAdding(true);
     try {
-      await onAddCustomModel(modelId);
+      const inferredKind = inferModelKind(modelId) || "llm";
+      await onAddCustomModel(modelId, inferredKind);
       setNewModel("");
     } catch (error) {
       console.log("Error adding model:", error);
@@ -147,7 +156,8 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         const modelId = model.id || model.name || model.model;
         if (!modelId) continue;
         if (allModels.some((entry) => entry.id === modelId)) continue;
-        await onAddCustomModel(modelId);
+        const inferredKind = inferModelKind(modelId) || "llm";
+        await onAddCustomModel(modelId, inferredKind);
         importedCount += 1;
       }
 
@@ -179,6 +189,19 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
     }
   };
 
+
+  const handleExecuteClearAll = async () => {
+    setShowClearConfirm(false);
+    if (!onClearAllModels || clearing) return;
+    setClearing(true);
+    try {
+      await onClearAllModels();
+    } catch (err) {
+      console.log("Error clearing all models:", err);
+    } finally {
+      setClearing(false);
+    }
+  };
   const canImport = connections.some((conn) => conn.isActive !== false);
 
   return (
@@ -206,6 +229,18 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         <Button size="sm" variant="secondary" icon="download" onClick={handleImport} disabled={!canImport || importing}>
           {importing ? "Importing..." : "Import from /models"}
         </Button>
+        {allModels.length > 0 && onClearAllModels && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="delete_sweep"
+            onClick={() => setShowClearConfirm(true)}
+            disabled={clearing || importing || adding}
+            className="text-red-500 hover:text-red-600 hover:border-red-500/30"
+          >
+            {clearing ? "Clearing..." : "Clear All Models"}
+          </Button>
+        )}
       </div>
 
       {!canImport && (
@@ -213,6 +248,17 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
           Add a connection to enable importing models.
         </p>
       )}
+
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleExecuteClearAll}
+        title="Clear All Models"
+        message={`Are you sure you want to remove all ${allModels.length} models from this provider? This action cannot be undone.`}
+        confirmText="Clear All"
+        cancelText="Cancel"
+        variant="danger"
+      />
 
       {allModels.length > 0 && (
         <div className="flex flex-col gap-3">
@@ -245,6 +291,7 @@ CompatibleModelsSection.propTypes = {
   onDeleteAlias: PropTypes.func.isRequired,
   onAddCustomModel: PropTypes.func.isRequired,
   onDeleteCustomModel: PropTypes.func.isRequired,
+  onClearAllModels: PropTypes.func,
   connections: PropTypes.arrayOf(PropTypes.shape({
     id: PropTypes.string,
     isActive: PropTypes.bool,

@@ -54,6 +54,27 @@ export async function deleteCustomModel({ providerAlias, id, type = "llm" }) {
   await customKv.remove(customKey(providerAlias, id, type));
 }
 
+export async function deleteAllCustomModels(providerAlias, type = null) {
+  const db = await getAdapter();
+  if (!providerAlias) return [];
+  const prefix = `${providerAlias}|`;
+  const removedIds = [];
+  db.transaction(() => {
+    const rows = db.all(`SELECT key, value FROM kv WHERE scope = 'customModels' AND key LIKE ?`, [`${prefix}%`]);
+    for (const r of rows) {
+      const parts = r.key.split("|");
+      // parts[0] is providerAlias, parts[1] is modelId, parts[2] is type
+      if (parts[0] !== providerAlias) continue;
+      if (type && parts[2] !== type) continue;
+      const parsed = parseJson(r.value);
+      if (parsed?.id) removedIds.push(parsed.id);
+      else if (parts[1]) removedIds.push(parts[1]);
+      db.run(`DELETE FROM kv WHERE scope = 'customModels' AND key = ?`, [r.key]);
+    }
+  });
+  return removedIds;
+}
+
 // mitmAlias: key=toolName, value=mappings object
 export async function getMitmAlias(toolName) {
   if (toolName) {
