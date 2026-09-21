@@ -32,11 +32,16 @@ function recordUsageAndDetail({
   providerResponse,
 }) {
   const timestamp = new Date().toISOString();
+  const usage = responseData?.usage || {};
+  const tokens = {
+    prompt_tokens: usage.input_tokens || 0,
+    completion_tokens: usage.output_tokens || 0,
+  };
 
   saveRequestUsage({
     provider: provider || "unknown",
     model: model || "unknown",
-    tokens: { prompt_tokens: 0, completion_tokens: 0 },
+    tokens,
     timestamp,
     connectionId: connectionId || undefined,
     apiKey: apiKey || undefined,
@@ -50,7 +55,7 @@ function recordUsageAndDetail({
     connectionId: connectionId || undefined,
     timestamp,
     latency: { total: latencyMs || 0, ttft: latencyMs || 0 },
-    tokens: { prompt_tokens: 0, completion_tokens: 0 },
+    tokens,
     request: requestBody || {},
     providerRequest: providerRequest !== undefined ? providerRequest : null,
     providerResponse: providerResponse !== undefined ? providerResponse : null,
