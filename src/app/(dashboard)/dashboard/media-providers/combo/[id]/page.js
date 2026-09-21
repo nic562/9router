@@ -3,6 +3,10 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
@@ -44,6 +48,81 @@ function getListingHref(kind) {
   return `/dashboard/media-providers/${kind}`;
 }
 
+
+function SortableProviderRow({ id, entry, idx, total, onMove, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 999 : undefined,
+  };
+
+  const { providerId, model } = parseModelEntry(entry);
+  const p = AI_PROVIDERS[providerId];
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        type="button"
+        className="cursor-grab touch-none p-0.5 rounded text-text-muted hover:text-primary active:cursor-grabbing shrink-0"
+        title="Drag to reorder"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="4" r="2"/><circle cx="15" cy="4" r="2"/>
+          <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
+          <circle cx="9" cy="20" r="2"/><circle cx="15" cy="20" r="2"/>
+        </svg>
+      </button>
+
+      <span className="text-xs text-text-muted w-5 text-center shrink-0">{idx + 1}</span>
+      <ProviderIcon
+        src={`/providers/${providerId}.png`}
+        alt={p?.name || providerId}
+        size={24}
+        className="object-contain rounded shrink-0"
+        fallbackText={p?.textIcon || providerId.slice(0, 2).toUpperCase()}
+        fallbackColor={p?.color}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate">{p?.name || providerId}</div>
+        {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
+      </div>
+      <div className="flex items-center gap-0.5">
+        <button
+          onClick={() => onMove(idx, -1)}
+          disabled={idx === 0}
+          className={`p-1 rounded ${idx === 0 ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5"}`}
+          title="Move up"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+        </button>
+        <button
+          onClick={() => onMove(idx, 1)}
+          disabled={idx === total - 1}
+          className={`p-1 rounded ${idx === total - 1 ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5"}`}
+          title="Move down"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+        </button>
+        <button
+          onClick={() => onRemove(idx)}
+          className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10"
+          title="Remove"
+        >
+          <span className="material-symbols-outlined text-[16px]">close</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ComboDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -61,6 +140,26 @@ export default function ComboDetailPage() {
   const [apiKey, setApiKey] = useState("");
   const [connections, setConnections] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const providerItems = providers.map((entry, i) => ({ uid: `item-${i}-${entry}`, entry }));
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = providerItems.findIndex((m) => m.uid === active.id);
+      const newIndex = providerItems.findIndex((m) => m.uid === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const next = arrayMove(providers, oldIndex, newIndex);
+        setProviders(next);
+        await saveCombo({ models: next });
+      }
+    }
+  };
 
   const fetchAll = async () => {
     try {
@@ -292,40 +391,28 @@ export default function ComboDetailPage() {
             No providers yet.
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {providers.map((entry, idx) => {
-              const { providerId, model } = parseModelEntry(entry);
-              const p = AI_PROVIDERS[providerId];
-              return (
-                <div key={`${entry}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
-                  <span className="text-xs text-text-muted w-5 text-center">{idx + 1}</span>
-                  <ProviderIcon
-                    src={`/providers/${providerId}.png`}
-                    alt={p?.name || providerId}
-                    size={24}
-                    className="object-contain rounded shrink-0"
-                    fallbackText={p?.textIcon || providerId.slice(0, 2).toUpperCase()}
-                    fallbackColor={p?.color}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={providerItems.map((m) => m.uid)} strategy={verticalListSortingStrategy}>
+              <div className="flex flex-col gap-2">
+                {providerItems.map(({ uid, entry }, idx) => (
+                  <SortableProviderRow
+                    key={uid}
+                    id={uid}
+                    entry={entry}
+                    idx={idx}
+                    total={providers.length}
+                    onMove={handleMove}
+                    onRemove={handleRemoveProvider}
                   />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{p?.name || providerId}</div>
-                    {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    <button onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={`p-1 rounded ${idx === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move up">
-                      <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
-                    </button>
-                    <button onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={`p-1 rounded ${idx === providers.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move down">
-                      <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
-                    </button>
-                    <button onClick={() => handleRemoveProvider(idx)} className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10" title="Remove">
-                      <span className="material-symbols-outlined text-[16px]">close</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </Card>
 

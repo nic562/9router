@@ -39,3 +39,37 @@ describe("Custom image provider support", () => {
     expect(inferModelKind("claude-3-5-sonnet")).toBe(null);
   });
 });
+
+
+
+  it("routes to /images/edits and returns FormData when reference images are present", async () => {
+    const adapter = getImageAdapter("openai-compatible-test");
+    const creds = { providerSpecificData: { baseUrl: "https://my-relay.com/v1" } };
+
+    const urlWithImg = adapter.buildUrl("gpt-image-2.5-flare", creds, {
+      prompt: "make it blue",
+      image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    });
+    expect(urlWithImg).toBe("https://my-relay.com/v1/images/edits");
+
+    const urlWithoutImg = adapter.buildUrl("gpt-image-2.5-flare", creds, {
+      prompt: "a green cat",
+    });
+    expect(urlWithoutImg).toBe("https://my-relay.com/v1/images/generations");
+
+    const bodyWithImg = await adapter.buildBody("gpt-image-2.5-flare", {
+      prompt: "make it blue",
+      image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      quality: "high",
+    });
+    expect(bodyWithImg instanceof FormData).toBe(true);
+    expect(bodyWithImg.get("prompt")).toBe("make it blue");
+    expect(bodyWithImg.get("model")).toBe("gpt-image-2.5-flare");
+    expect(bodyWithImg.get("quality")).toBe("high");
+    expect(bodyWithImg.get("image")).toBeDefined();
+
+    const headers = adapter.buildHeaders({ apiKey: "sk-123" }, bodyWithImg);
+    // FormData should not have Content-Type set manually
+    expect(headers["Content-Type"]).toBeUndefined();
+    expect(headers["Authorization"]).toBe("Bearer sk-123");
+  });

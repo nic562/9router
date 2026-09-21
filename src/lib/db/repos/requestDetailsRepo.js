@@ -68,41 +68,61 @@ function generateDetailId(model) {
   return `${timestamp}-${random}-${modelPart}`;
 }
 
-function truncateField(obj, maxSize) {
+function maskB64InDetail(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(maskB64InDetail);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (typeof v === "string" && (k === "b64_json" || (v.startsWith("data:image/") && v.length > 100))) {
+      out[k] = `${v.slice(0, 50)}... [Base64 Image truncated, length: ${v.length}]`;
+    } else if (typeof v === "string" && k === "data" && v.length > 200 && /^[A-Za-z0-9+/=]+$/.test(v)) {
+      out[k] = `${v.slice(0, 50)}... [Base64 Data truncated, length: ${v.length}]`;
+    } else if (typeof v === "object" && v !== null) {
+      out[k] = maskB64InDetail(v);
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function normalizeFieldForStorage(field) {
+  if (!field) return field || {};
+  if (typeof FormData !== "undefined" && field instanceof FormData) {
+    const out = { _type: "multipart/form-data" };
+    for (const [key, val] of field.entries()) {
+      if (typeof Blob !== "undefined" && val instanceof Blob) {
+        out[key] = `[File: ${val.name || "image.png"}, size: ${val.size} bytes, type: ${val.type || "application/octet-stream"}]`;
+      } else {
+        if (out[key] !== undefined) {
+          if (!Array.isArray(out[key])) out[key] = [out[key]];
+          out[key].push(val);
+        } else {
+          out[key] = val;
+        }
+      }
+    }
+    return out;
+  }
+  return field;
+}
+
+function truncateField(objInput, maxSize) {
+  const obj = normalizeFieldForStorage(objInput);
   if (!obj) return obj || {};
-  
-  // Cleanly sanitize oversized base64 inline images if needed while preserving prompt structure
+
   let sanitizedObj = obj;
   try {
     const str = JSON.stringify(obj);
     if (str.length > maxSize) {
-      // If object has prompt and image/images, truncate heavy base64 while keeping user prompt
-      if (typeof obj === "object" && obj !== null) {
-        const cloned = { ...obj };
-        if (typeof cloned.image === "string" && cloned.image.startsWith("data:image")) {
-          cloned.image = `${cloned.image.slice(0, 60)}... [Base64 Image truncated, length: ${cloned.image.length}]`;
-        }
-        if (Array.isArray(cloned.image)) {
-          cloned.image = cloned.image.map((img) =>
-            typeof img === "string" && img.startsWith("data:image")
-              ? `${img.slice(0, 60)}... [Base64 Image truncated, length: ${img.length}]`
-              : img
-          );
-        }
-        if (Array.isArray(cloned.extra_body?.image)) {
-          cloned.extra_body = {
-            ...cloned.extra_body,
-            image: cloned.extra_body.image.map((img) =>
-              typeof img === "string" && img.startsWith("data:image")
-                ? `${img.slice(0, 60)}... [Base64 Image truncated, length: ${img.length}]`
-                : img
-            ),
-          };
-        }
-        const newStr = JSON.stringify(cloned);
-        if (newStr.length <= maxSize) {
-          return cloned;
-        }
+      // First try recursively masking heavy base64 strings in image inputs/outputs
+      const masked = maskB64InDetail(obj);
+      const maskedStr = JSON.stringify(masked);
+      if (maskedStr.length <= maxSize) {
+        return masked;
+      }
+
+      if (typeof masked === "object" && masked !== null) {
         return {
           _truncated: true,
           _originalSize: str.length,
@@ -111,7 +131,7 @@ function truncateField(obj, maxSize) {
           input: obj.input ? `[Array of ${obj.input.length} input items (truncated from ${str.length} bytes)]` : undefined,
           instructions: typeof obj.instructions === "string" ? `${obj.instructions.slice(0, 300)}... [truncated, total: ${obj.instructions.length} chars]` : undefined,
           tools: obj.tools ? `[Array of ${obj.tools.length} tools]` : undefined,
-          _preview: str.substring(0, 4000),
+          _preview: maskedStr.substring(0, 4000),
         };
       }
       return { _truncated: true, _originalSize: str.length, _preview: str.substring(0, 2000) };

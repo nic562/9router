@@ -81,6 +81,8 @@ export async function handleImageGenerationCore({
       return {
         success: true,
         finalBody,
+        providerRequest: body,
+        providerResponse: responseBody,
         response: new Response(JSON.stringify(finalBody), {
           headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
         }),
@@ -97,7 +99,7 @@ export async function handleImageGenerationCore({
   let requestBody;
 
   try {
-    url = adapter.buildUrl(model, credentials);
+    url = adapter.buildUrl(model, credentials, body);
     requestBody = await adapter.buildBody(model, body);
     headers = adapter.buildHeaders(credentials, requestBody, model, body);
   } catch (error) {
@@ -141,7 +143,7 @@ export async function handleImageGenerationCore({
       try {
         const retryBody = await adapter.buildBody(model, body);
         const retryHeaders = adapter.buildHeaders(credentials, retryBody, model, body);
-        const retryUrl = adapter.buildUrl(model, credentials);
+        const retryUrl = adapter.buildUrl(model, credentials, body);
         providerResponse = await fetch(retryUrl, {
           method: "POST",
           headers: retryHeaders,
@@ -159,7 +161,11 @@ export async function handleImageGenerationCore({
     const { statusCode, message } = await parseUpstreamError(providerResponse);
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
     log?.debug?.("IMAGE", `Provider error: ${errMsg}`);
-    return createErrorResult(statusCode, errMsg);
+    return {
+      ...createErrorResult(statusCode, errMsg),
+      providerRequest: requestBody,
+      providerResponse: { status: statusCode, error: message },
+    };
   }
 
   // Parse provider response — adapter may override (codex SSE / async polling / binary)
@@ -222,6 +228,8 @@ export async function handleImageGenerationCore({
   return {
     success: true,
     finalBody,
+    providerRequest: requestBody,
+    providerResponse: parsed,
     response: new Response(JSON.stringify(finalBody), {
       headers: {
         "Content-Type": "application/json",

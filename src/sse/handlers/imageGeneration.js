@@ -28,6 +28,8 @@ function recordUsageAndDetail({
   latencyMs,
   requestBody,
   responseData,
+  providerRequest,
+  providerResponse,
 }) {
   const timestamp = new Date().toISOString();
 
@@ -50,6 +52,8 @@ function recordUsageAndDetail({
     latency: { total: latencyMs || 0, ttft: latencyMs || 0 },
     tokens: { prompt_tokens: 0, completion_tokens: 0 },
     request: requestBody || {},
+    providerRequest: providerRequest !== undefined ? providerRequest : null,
+    providerResponse: providerResponse !== undefined ? providerResponse : null,
     response: responseData || {},
     endpoint: endpoint || "/v1/images/generations",
     status: status === "success" ? "success" : "error",
@@ -157,6 +161,8 @@ async function handleSingleModelImage(
         latencyMs,
         requestBody: body,
         responseData: result.finalBody || {},
+        providerRequest: result.providerRequest,
+        providerResponse: result.providerResponse,
       });
       return result.response;
     }
@@ -170,6 +176,8 @@ async function handleSingleModelImage(
       latencyMs,
       requestBody: body,
       responseData: { error: result.error || "Image generation failed" },
+      providerRequest: result.providerRequest,
+      providerResponse: result.providerResponse,
     });
     return errorResponse(result.status || HTTP_STATUS.BAD_GATEWAY, result.error || "Image generation failed");
   }
@@ -244,6 +252,8 @@ async function handleSingleModelImage(
         latencyMs,
         requestBody: body,
         responseData: result.finalBody || {},
+        providerRequest: result.providerRequest,
+        providerResponse: result.providerResponse,
       });
       return result.response;
     }
@@ -267,6 +277,8 @@ async function handleSingleModelImage(
       latencyMs,
       requestBody: body,
       responseData: { error: result.error },
+      providerRequest: result.providerRequest,
+      providerResponse: result.providerResponse,
     });
 
     return result.response;
