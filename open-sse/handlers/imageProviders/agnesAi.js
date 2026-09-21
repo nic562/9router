@@ -74,8 +74,23 @@ export default {
       prompt,
     };
 
+    // Quality parameter mapping: OpenAI standard quality (low, medium, high / standard, hd)
+    const rawQuality = body.quality;
+    if (rawQuality && isModern) {
+      const qStr = String(rawQuality).toLowerCase();
+      // If quality is high/hd and size is not specified or 1K, allow quality to influence tier
+      if ((qStr === "high" || qStr === "hd") && (!size || size === "auto")) {
+        size = "2K";
+      } else if (qStr === "low" && (!size || size === "auto")) {
+        size = "1K";
+      }
+      req.quality = rawQuality;
+    } else if (rawQuality) {
+      req.quality = rawQuality;
+    }
+
     if (isModern) {
-      // === Agnes Image 2.1 Flash ===
+      // === Agnes Image 2.1 Flash / 2.5 Flash ===
       // Supports size tiers: "1K", "2K", "3K", "4K" and ratio: "1:1", "3:4", "4:3", "16:9", etc.
       // Also backwards compatible with exact dimensions like "1024x1024"
       if (ratio) {

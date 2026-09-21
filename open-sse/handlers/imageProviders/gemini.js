@@ -86,6 +86,19 @@ function parseImageConfig(body, model) {
     }
   }
 
+  // Map quality / imageQuality / qualityTier
+  const rawQuality = body?.quality || body?.imageQuality || body?.generationConfig?.imageConfig?.quality;
+  if (rawQuality) {
+    const qStr = String(rawQuality).toLowerCase();
+    if (["low", "medium", "high"].includes(qStr)) {
+      config.quality = qStr;
+    } else if (qStr === "hd" || qStr === "ultra") {
+      config.quality = "high";
+    } else if (qStr === "standard") {
+      config.quality = "medium";
+    }
+  }
+
   if (!config.aspectRatio) {
     config.aspectRatio = "1:1";
   }
