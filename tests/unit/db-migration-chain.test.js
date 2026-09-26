@@ -97,4 +97,43 @@ describe("Schema migrations", () => {
     const idx = db2.all(`PRAGMA index_list(providerNodes)`).map(i => i.name);
     expect(idx).toContain("idx_pn_type");
   });
+  it("migrates agnes-ai provider to agnes (v2 migration)", async () => {
+    // 1st boot: initialize at version 1 with agnes-ai data
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const db = await getAdapter();
+    db.run(
+      "INSERT INTO providerConnections(id, provider, authType, name, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      ["c1", "agnes-ai", "apikey", "test", 1, 1, "{}", "2026-01-01", "2026-01-01"]
+    );
+    db.run(
+      "INSERT INTO usageHistory(timestamp, provider, model, promptTokens, completionTokens) VALUES(?, ?, ?, ?, ?)",
+      ["2026-01-01T00:00:00Z", "agnes-ai", "agnes-2.0-flash", 10, 20]
+    );
+    db.run(
+      "INSERT INTO requestDetails(id, timestamp, provider, model, data) VALUES(?, ?, ?, ?, ?)",
+      ["r1", "2026-01-01T00:00:00Z", "agnes-ai", "agnes-2.0-flash", "{}"]
+    );
+    
+    // Simulate being at schemaVersion 1 before v2 was applied
+    db.run("UPDATE _meta SET value = '1' WHERE key = 'schemaVersion'");
+    db.close?.();
+
+    // 2nd boot: simulates production restart with new code
+    delete global._dbAdapter;
+    vi.resetModules();
+    const { getAdapter: getAdapter2 } = await import("@/lib/db/driver.js");
+    const db2 = await getAdapter2();
+
+    const conn = db2.get("SELECT * FROM providerConnections WHERE id = 'c1'");
+    expect(conn.provider).toBe("agnes");
+
+    const usage = db2.get("SELECT * FROM usageHistory WHERE id = 1");
+    expect(usage.provider).toBe("agnes");
+
+    const details = db2.get("SELECT * FROM requestDetails WHERE id = 'r1'");
+    expect(details.provider).toBe("agnes");
+
+    const row = db2.get("SELECT value FROM _meta WHERE key='schemaVersion'");
+    expect(parseInt(row.value, 10)).toBe(2);
+  });
 });
