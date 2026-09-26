@@ -23,7 +23,7 @@ function buildTransport(transport, oauth) {
 const MEDIA_KEYS = new Set([
   "serviceKinds", "ttsConfig", "sttConfig", "embeddingConfig",
   "imageConfig", "imageToTextConfig", "videoConfig", "musicConfig",
-  "searchViaChat", "searchConfig", "fetchConfig",
+  "searchViaChat", "searchConfig", "fetchConfig", "systemoneConfig",
   "modelsFetcher", "mediaPriority", "hiddenKinds",
 ]);
 
@@ -45,6 +45,15 @@ for (const entry of REGISTRY) {
   }
   if (entry.media) Object.assign(mediaFields, entry.media);
   if (Object.keys(mediaFields).length) PROVIDER_MEDIA[entry.id] = mediaFields;
+  // Also register aliases into PROVIDER_MODELS and PROVIDER_MEDIA for seamless lookup
+  for (const a of entry.aliases || []) {
+    if (entry.models !== undefined && !PROVIDER_MODELS[a]) {
+      PROVIDER_MODELS[a] = PROVIDER_MODELS[entry.alias || entry.id];
+    }
+    if (Object.keys(mediaFields).length && !PROVIDER_MEDIA[a]) {
+      PROVIDER_MEDIA[a] = mediaFields;
+    }
+  }
 }
 
 // TTS model/voice tables keyed by special names (openai-tts-models, ...), not provider ids

@@ -4,7 +4,7 @@
 import { PROVIDER_MEDIA } from "../../providers/index.js";
 import { nowSec } from "./_base.js";
 
-const imageCfg = () => PROVIDER_MEDIA["agnes-ai"]?.imageConfig || {};
+const imageCfg = () => PROVIDER_MEDIA["agnes"]?.imageConfig || PROVIDER_MEDIA["agnes-ai"]?.imageConfig || {};
 const imageUrl = () => imageCfg().baseUrl || "https://apihub.agnes-ai.com/v1/images/generations";
 
 // Standard output dimensions per ratio for 1K tier (Agnes Image 2.1 mapping)

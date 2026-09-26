@@ -74,6 +74,14 @@ const OAUTH_TEST_CONFIG = {
     authPrefix: "Bearer ",
     refreshable: false,
   },
+  "qoder-cn": {
+    // Same shape as intl qoder, CN host.
+    url: "https://openapi.qoder.com.cn/api/v1/userinfo",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    refreshable: false,
+  },
   kimi: { checkExpiry: true, refreshable: true },
   "kimi-coding": { checkExpiry: true, refreshable: true },
   cursor: { tokenExists: true },
@@ -636,6 +644,7 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         const valid = res.status !== 401 && res.status !== 403;
         return { valid, error: valid ? null : "Invalid API key" };
       }
+      case "agnes":
       case "agnes-ai": {
         const res = await fetchWithConnectionProxy("https://apihub.agnes-ai.com/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
@@ -691,6 +700,15 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       }
       case "hyperbolic": {
         const res = await fetchWithConnectionProxy("https://api.hyperbolic.xyz/v1/models", { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
+        return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
+      }
+      case "tokenharbor":
+      case "dahl":
+      case "atria":
+      case "agnes":
+      case "bai": {
+        const cfg = PROVIDERS[connection.provider];
+        const res = await fetchWithConnectionProxy(cfg.validateUrl, { headers: { Authorization: `Bearer ${connection.apiKey}` } }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
       case "ollama": {
@@ -786,12 +804,16 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key" };
       }
-      case "qoder": {
+      case "qoder":
+      case "qoder-cn": {
         // PAT (pt-...) exchange → job token. A successful exchange proves the PAT.
+        const exchangeUrl = provider === "qoder-cn"
+          ? "https://openapi.qoder.com.cn/api/v1/jobToken/exchange"
+          : "https://openapi.qoder.sh/api/v1/jobToken/exchange";
         const raw = connection.apiKey || "";
         const pat = raw.startsWith("pt-") ? raw : `pt-${raw}`;
         const exRes = await fetchWithConnectionProxy(
-          "https://openapi.qoder.sh/api/v1/jobToken/exchange",
+          exchangeUrl,
           {
             method: "POST",
             headers: {

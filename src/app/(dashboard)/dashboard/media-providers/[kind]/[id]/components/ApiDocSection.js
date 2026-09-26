@@ -171,7 +171,7 @@ function generateDynamicMarkdownDoc(providerId, kind) {
 
     // 2. Image to Image example (if provider has edit models or multi_image)
     const editModel = kindModels.find((m) => m.capabilities?.includes("edit") || m.id.includes("img2img") || m.id.includes("flash"));
-    if (editModel || providerId === "agnes-ai" || providerId === "cloudflare-ai") {
+    if (editModel || providerId === "agnes" || providerId === "agnes-ai" || providerId === "cloudflare-ai") {
       const editModelFull = editModel ? `${providerAlias}/${editModel.id}` : defaultModelFull;
       lines.push("### 2. Image to Image / Edit (图生图 / 图像编辑)");
       lines.push("```json");

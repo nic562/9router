@@ -1,21 +1,24 @@
 export default {
-  id: "agnes-ai",
-  priority: 90,
-  alias: "agnes-ai",
-  aliases: ["agnes"],
+  id: "agnes",
+  priority: 120,
+  alias: "agnes",
+  aliases: [
+    "agnes-ai",
+  ],
   uiAlias: "agnes",
   display: {
-    name: "Agnes-AI",
+    name: "Agnes AI",
     icon: "auto_awesome",
     color: "#6366F1",
     textIcon: "AG",
     website: "https://agnes-ai.com",
     notice: {
-      apiKeyUrl: "https://agnes-ai.com/en/docs/",
-      text: "Agnes-AI multi-modal models: LLM chat, image generation & editing (img2img), and async video generation.",
+      text: "OpenAI-compatible gateway from Agnes AI, offering free API credits on sign-up. Multi-modal models: LLM chat, image generation & editing (img2img), and video generation.",
+      apiKeyUrl: "https://platform.agnes-ai.com",
     },
   },
-  category: "apikey",
+  category: "freeTier",
+  authType: "apikey",
   transport: {
     baseUrl: "https://apihub.agnes-ai.com/v1/chat/completions",
     validateUrl: "https://apihub.agnes-ai.com/v1/models",
@@ -72,4 +75,5 @@ export default {
     workflows: ["Text to Video", "Image to Video"],
     pricingUrl: "https://www.agnes-ai.com/zh-Hans/docs/pricing",
   },
+  passthroughModels: true,
 };
