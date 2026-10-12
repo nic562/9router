@@ -7,6 +7,7 @@ import {
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
+import { getKeyAccessContext, enforceKeyAccess } from "../services/keyAccess.js";
 import { handleImageGenerationCore } from "open-sse/handlers/imageGenerationCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
@@ -17,6 +18,26 @@ import * as log from "../utils/logger.js";
 
 // Providers that don't require credentials (noAuth)
 const NO_AUTH_PROVIDERS = new Set(["sdwebui", "comfyui"]);
+
+function recordImageRequestUsage({ provider, model, connectionId, apiKey, endpoint, usage }) {
+  if (!usage || typeof usage !== "object") return;
+  const promptTokens = usage.prompt_tokens;
+  const completionTokens = usage.completion_tokens;
+  if (!Number.isSafeInteger(promptTokens) || promptTokens < 0 ||
+      !Number.isSafeInteger(completionTokens) || completionTokens < 0) {
+    return;
+  }
+
+  saveRequestUsage({
+    provider,
+    model,
+    connectionId: connectionId || undefined,
+    apiKey: apiKey || undefined,
+    endpoint: endpoint || null,
+    tokens: usage,
+    status: "success",
+  }).catch(() => {});
+}
 
 function recordUsageAndDetail({
   provider,
@@ -30,24 +51,34 @@ function recordUsageAndDetail({
   responseData,
   providerRequest,
   providerResponse,
+  usageRecorded = false,
 }) {
   const timestamp = new Date().toISOString();
   const usage = responseData?.usage || {};
+  const promptTokens = usage.input_tokens ?? usage.prompt_tokens ?? 0;
+  const completionTokens = usage.output_tokens ?? usage.completion_tokens ?? 0;
+  const hasTokens = (Number.isSafeInteger(promptTokens) && promptTokens > 0) ||
+                    (Number.isSafeInteger(completionTokens) && completionTokens > 0);
+
   const tokens = {
-    prompt_tokens: usage.input_tokens || 0,
-    completion_tokens: usage.output_tokens || 0,
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
   };
 
-  saveRequestUsage({
-    provider: provider || "unknown",
-    model: model || "unknown",
-    tokens,
-    timestamp,
-    connectionId: connectionId || undefined,
-    apiKey: apiKey || undefined,
-    endpoint: endpoint || "/v1/images/generations",
-    status: status === "success" ? "ok" : "error",
-  }).catch(() => {});
+  // Avoid double-recording if onUsage already recorded provider-reported usage.
+  // When usage was not reported via onUsage, only record non-zero usage if present.
+  if (!usageRecorded && hasTokens) {
+    saveRequestUsage({
+      provider: provider || "unknown",
+      model: model || "unknown",
+      tokens,
+      timestamp,
+      connectionId: connectionId || undefined,
+      apiKey: apiKey || undefined,
+      endpoint: endpoint || "/v1/images/generations",
+      status: status === "success" ? "success" : "error",
+    }).catch(() => {});
+  }
 
   saveRequestDetail({
     provider: provider || "unknown",
@@ -98,6 +129,10 @@ export async function handleImageGeneration(request) {
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.prompt) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: prompt");
+
+  // Per-key access control: requested target, before combo expansion.
+  const keyAccessDenied = await enforceKeyAccess(await getKeyAccessContext(request), modelStr);
+  if (keyAccessDenied) return keyAccessDenied;
 
   // Combo expansion: model may be a combo name → run fallback/round-robin across models
   const comboModels = await getComboModels(modelStr);
@@ -168,6 +203,7 @@ async function handleSingleModelImage(
         responseData: result.finalBody || {},
         providerRequest: result.providerRequest,
         providerResponse: result.providerResponse,
+        usageRecorded: false,
       });
       return result.response;
     }
@@ -225,6 +261,7 @@ async function handleSingleModelImage(
     lastConnectionId = credentials.connectionId;
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
 
+    let usageRecorded = false;
     const result = await handleImageGenerationCore({
       body,
       modelInfo: { provider, model },
@@ -237,6 +274,17 @@ async function handleSingleModelImage(
           refreshToken: newCreds.refreshToken,
           providerSpecificData: newCreds.providerSpecificData,
           testStatus: "active",
+        });
+      },
+      onUsage: (usage) => {
+        usageRecorded = true;
+        recordImageRequestUsage({
+          provider,
+          model,
+          connectionId: credentials.connectionId,
+          apiKey,
+          endpoint,
+          usage,
         });
       },
       onRequestSuccess: async () => {
@@ -259,6 +307,7 @@ async function handleSingleModelImage(
         responseData: result.finalBody || {},
         providerRequest: result.providerRequest,
         providerResponse: result.providerResponse,
+        usageRecorded,
       });
       return result.response;
     }

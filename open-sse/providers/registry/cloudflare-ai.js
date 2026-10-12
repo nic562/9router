@@ -27,6 +27,7 @@ export default {
     thinkingFormat: "openai",
   },
   models: [
+    { id: "@cf/cloudflare/clef-flash", name: "Clef Flash", kind: "systemone", upstreamModelId: "clef-flash" },
     { id: "@cf/meta/llama-3.2-1b-instruct", name: "Llama 3.2 1B Instruct" },
     { id: "@cf/meta/llama-3.2-3b-instruct", name: "Llama 3.2 3B Instruct" },
     { id: "@cf/meta/llama-3.1-8b-instruct-fp8-fast", name: "Llama 3.1 8B Instruct FP8 Fast" },
@@ -52,7 +53,12 @@ export default {
     { id: "@cf/runwayml/stable-diffusion-v1-5-img2img", name: "Stable Diffusion v1.5 Img2Img", params: ["size", "image", "negative_prompt", "strength", "guidance", "num_steps", "seed"], capabilities: ["edit"], kind: "image" },
     { id: "@cf/runwayml/stable-diffusion-v1-5-inpainting", name: "Stable Diffusion v1.5 Inpainting", params: ["size", "image", "mask_image", "negative_prompt", "strength", "guidance", "num_steps", "seed"], capabilities: ["edit", "mask"], kind: "image" },
   ],
-  serviceKinds: ["llm","image"],
+  serviceKinds: ["llm", "image", "systemone"],
+  systemoneConfig: {
+    baseUrl: "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/run/{model}",
+    authType: "apikey",
+    authHeader: "bearer",
+  },
   imageConfig: {
     baseUrl: "https://api.cloudflare.com/client/v4/accounts",
     workflows: ["Text to Image", "Image to Image (Img2Img)", "Inpainting (Mask Inpaint)"],

@@ -23,9 +23,16 @@ export default {
     baseUrl: "https://apihub.agnes-ai.com/v1/chat/completions",
     validateUrl: "https://apihub.agnes-ai.com/v1/models",
   },
+  // Seeds so the dashboard has something to show before a key is saved and
+  // /v1/models answers with a usable list. The live catalogue at
+  // apihub.agnes-ai.com/v1/models requires a token (401 "Token not provided"),
+  // so these ids are a curated starting set rather than a verified dump —
+  // passthroughModels below still accepts any id the account actually has.
   models: [
-    { id: "agnes-2.0-flash", name: "Agnes 2.0 Flash" },
     { id: "agnes-2.5-flash", name: "Agnes 2.5 Flash" },
+    { id: "agnes-2.5-pro", name: "Agnes 2.5 Pro" },
+    { id: "agnes-2.5-pro-beta", name: "Agnes 2.5 Pro Beta" },
+    { id: "agnes-3.0-flash", name: "Agnes 3.0 Flash" },
     {
       id: "agnes-image-2.0-flash",
       name: "Agnes Image 2.0 Flash",
