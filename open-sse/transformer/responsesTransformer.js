@@ -51,8 +51,9 @@ export function createResponsesLogger(model, logsDir = null) {
  * @param {Object} logger - Optional logger instance
  * @returns {TransformStream}
  */
-export function createResponsesApiTransformStream(logger = null) {
+export function createResponsesApiTransformStream(logger = null, toolNamespaceMap = null) {
   const state = {
+    toolNamespaceMap,
     seq: 0,
     responseId: `resp_${Date.now()}`,
     created: Math.floor(Date.now() / 1000),
@@ -205,16 +206,24 @@ export function createResponsesApiTransformStream(logger = null) {
         arguments: args
       });
 
+      const fnName = state.funcNames[idx] || "";
+      const namespace = state.toolNamespaceMap instanceof Map
+        ? state.toolNamespaceMap.get(fnName)
+        : (state.toolNamespaceMap?.[fnName] || null);
+
+      const doneItem = {
+        id: `fc_${callId}`,
+        type: "function_call",
+        arguments: args,
+        call_id: callId,
+        name: fnName
+      };
+      if (namespace) doneItem.namespace = namespace;
+
       emit(controller, "response.output_item.done", {
         type: "response.output_item.done",
         output_index: parseInt(idx),
-        item: {
-          id: `fc_${callId}`,
-          type: "function_call",
-          arguments: args,
-          call_id: callId,
-          name: state.funcNames[idx] || ""
-        }
+        item: doneItem
       });
 
       state.funcItemDone[idx] = true;
@@ -388,16 +397,23 @@ export function createResponsesApiTransformStream(logger = null) {
             if (!state.funcCallIds[tcIdx] && newCallId) {
               state.funcCallIds[tcIdx] = newCallId;
               
+              const addedName = state.funcNames[tcIdx] || "";
+              const addedNs = state.toolNamespaceMap instanceof Map
+                ? state.toolNamespaceMap.get(addedName)
+                : (state.toolNamespaceMap?.[addedName] || null);
+              const addedItem = {
+                id: `fc_${newCallId}`,
+                type: "function_call",
+                arguments: "",
+                call_id: newCallId,
+                name: addedName
+              };
+              if (addedNs) addedItem.namespace = addedNs;
+
               emit(controller, "response.output_item.added", {
                 type: "response.output_item.added",
                 output_index: tcIdx,
-                item: {
-                  id: `fc_${newCallId}`,
-                  type: "function_call",
-                  arguments: "",
-                  call_id: newCallId,
-                  name: state.funcNames[tcIdx] || ""
-                }
+                item: addedItem
               });
             }
 

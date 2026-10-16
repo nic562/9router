@@ -107,10 +107,17 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
       result = directFn(model, result, stream, credentials);
     } else {
       // Step 1: source -> openai (if source is not openai)
+      let intermediateToolNamespaceMap = null;
+      let intermediateToolNameMap = null;
+      let intermediateCustomToolNames = null;
+
       if (sourceFormat !== FORMATS.OPENAI) {
         const toOpenAI = requestRegistry.get(`${sourceFormat}:${FORMATS.OPENAI}`);
         if (toOpenAI) {
           result = toOpenAI(model, result, stream, credentials);
+          intermediateToolNamespaceMap = result._toolNamespaceMap;
+          intermediateToolNameMap = result._toolNameMap;
+          intermediateCustomToolNames = result._customToolNames;
           // Log OpenAI intermediate format
           reqLogger?.logOpenAIRequest?.(result);
         }
@@ -121,6 +128,9 @@ export function translateRequest(sourceFormat, targetFormat, model, body, stream
         const fromOpenAI = requestRegistry.get(`${FORMATS.OPENAI}:${targetFormat}`);
         if (fromOpenAI) {
           result = fromOpenAI(model, result, stream, credentials);
+          if (intermediateToolNamespaceMap && !result._toolNamespaceMap) result._toolNamespaceMap = intermediateToolNamespaceMap;
+          if (intermediateToolNameMap && !result._toolNameMap) result._toolNameMap = intermediateToolNameMap;
+          if (intermediateCustomToolNames && !result._customToolNames) result._customToolNames = intermediateCustomToolNames;
         }
       }
     }
@@ -287,6 +297,7 @@ export function initState(sourceFormat) {
       funcArgsDone: {},
       funcItemDone: {},
       customToolNames: new Set(),
+      toolNamespaceMap: null,
       // Chat Completions usage for response.completed. Not state.usage: other translators in
       // the same pipeline overwrite that in their own shapes.
       responsesUsage: null,

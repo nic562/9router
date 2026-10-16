@@ -350,18 +350,25 @@ function emitToolCall(state, emit, tc) {
   const callId = state.funcCallIds[tcIdx];
   if (!state.funcItemAdded[tcIdx] && callId && state.funcNames[tcIdx]) {
     state.funcItemAdded[tcIdx] = true;
-    const custom = isCustomTool(state, state.funcNames[tcIdx]);
+    const name = state.funcNames[tcIdx];
+    const custom = isCustomTool(state, name);
+    const namespace = state.toolNamespaceMap instanceof Map
+      ? state.toolNamespaceMap.get(name)
+      : (state.toolNamespaceMap?.[name] || null);
+
+    const item = {
+      id: `${custom ? "ctc" : "fc"}_${callId}`,
+      type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
+      ...(custom ? { input: "" } : { arguments: "" }),
+      call_id: callId,
+      name
+    };
+    if (namespace) item.namespace = namespace;
 
     emit("response.output_item.added", {
       type: "response.output_item.added",
       output_index: tcIdx,
-      item: {
-        id: `${custom ? "ctc" : "fc"}_${callId}`,
-        type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
-        ...(custom ? { input: "" } : { arguments: "" }),
-        call_id: callId,
-        name: state.funcNames[tcIdx] || ""
-      }
+      item
     });
   }
 
@@ -413,13 +420,19 @@ function closeToolCall(state, emit, idx) {
       });
     }
 
+    const name = state.funcNames[idx] || "";
+    const namespace = state.toolNamespaceMap instanceof Map
+      ? state.toolNamespaceMap.get(name)
+      : (state.toolNamespaceMap?.[name] || null);
+
     const item = {
       id: `${custom ? "ctc" : "fc"}_${callId}`,
       type: custom ? RESPONSES_ITEM.CUSTOM_TOOL_CALL : RESPONSES_ITEM.FUNCTION_CALL,
       ...(custom ? { input: extractCustomToolInput(args) } : { arguments: args }),
       call_id: callId,
-      name: state.funcNames[idx] || ""
+      name
     };
+    if (namespace) item.namespace = namespace;
 
     emit("response.output_item.done", {
       type: "response.output_item.done",

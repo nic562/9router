@@ -178,21 +178,60 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
   // explicit `name` field and cannot be represented as Chat Completions function declarations.
   // Filter them out to avoid sending nameless functionDeclarations to downstream providers
   // such as Gemini, which strictly validates function names.
+  //
+  // Responses API also supports dynamic namespaces ({ type: "namespace", name: "...", tools: [...] }),
+  // e.g. multi_agent_v1, MCP server tools. Unpack their contained tools into flat functions so downstream
+  // models receive the real tools (e.g. spawn_agent) rather than a dummy namespace shell, and record
+  // tool -> namespace mapping so responses can restore the namespace field.
   const responseTools = [
     ...(Array.isArray(body.tools) ? body.tools : []),
     ...additionalTools,
   ];
-  if (responseTools.length > 0) {
-    result.tools = responseTools
+  const toolNamespaceMap = new Map();
+  const seenToolNames = new Set();
+  const flattenedTools = [];
+
+  for (const tool of responseTools) {
+    if (!tool || typeof tool !== "object") continue;
+    if (tool.type === "namespace") {
+      if (Array.isArray(tool.tools)) {
+        const namespace = typeof tool.name === "string" ? tool.name.trim() : "";
+        for (const subTool of tool.tools) {
+          if (!subTool || typeof subTool !== "object") continue;
+          const subName = typeof subTool.name === "string"
+            ? subTool.name.trim()
+            : (typeof subTool.function?.name === "string" ? subTool.function.name.trim() : "");
+          if (!subName) continue;
+          if (namespace) toolNamespaceMap.set(subName, namespace);
+          flattenedTools.push({
+            ...subTool,
+            parameters: subTool.parameters || subTool.inputSchema
+          });
+        }
+      }
+      // Namespace objects are containers, never standalone executable tools
+      continue;
+    }
+    flattenedTools.push(tool);
+  }
+
+  if (flattenedTools.length > 0) {
+    result.tools = flattenedTools
       .map(tool => {
         // Already in Chat Completions format: { type: "function", function: { name, ... } }
-        if (tool.function) return tool;
+        if (tool.function) {
+          const fnName = typeof tool.function.name === "string" ? tool.function.name.trim() : "";
+          if (!fnName || seenToolNames.has(fnName)) return null;
+          seenToolNames.add(fnName);
+          return tool;
+        }
         // Responses API function/custom tool: { type, name, description, parameters|format }.
         // Chat Completions has no freeform custom-tool declaration, so expose custom
         // tools as functions with one raw `input` string while retaining their names
         // in translator-only metadata for the response conversion.
-        const name = tool.name;
-        if (!name || typeof name !== "string" || name.trim() === "") return null;
+        const name = typeof tool.name === "string" ? tool.name.trim() : "";
+        if (!name || seenToolNames.has(name)) return null;
+        seenToolNames.add(name);
         if (tool.type === "custom") {
           customToolNames.add(name);
           const formatHint = [tool.format?.syntax, tool.format?.definition].filter(Boolean).join("\n");
@@ -222,7 +261,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           function: {
             name,
             description: String(tool.description || ""),
-            parameters: normalizeToolParameters(tool.parameters),
+            parameters: normalizeToolParameters(tool.parameters || tool.inputSchema),
             strict: tool.strict
           }
         };
@@ -230,6 +269,7 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
       .filter(Boolean);
   }
   if (customToolNames.size > 0) result._customToolNames = [...customToolNames];
+  if (toolNamespaceMap.size > 0) result._toolNamespaceMap = toolNamespaceMap;
 
   // If no tools or empty tools array, remove tool_choice to prevent OpenAI upstream 400
   if (!result.tools || (Array.isArray(result.tools) && result.tools.length === 0)) {
