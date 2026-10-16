@@ -40,7 +40,7 @@ export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
   "errorMessage", "errorMessages", "x-errorMessage", "x-errorMessages",
   "markdownDescription", "x-intellij-html-description",
   "x-taplo-info", "x-taplo", "doNotSuggest", "suggestSortText",
-  "minProperties", "maxProperties"
+  "minProperties", "maxProperties", "encrypted"
 ];
 
 // Default safety settings

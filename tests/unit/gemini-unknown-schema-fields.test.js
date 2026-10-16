@@ -32,6 +32,9 @@ describe("UNSUPPORTED_SCHEMA_CONSTRAINTS includes non-standard annotation keywor
   it("includes maxProperties", () => {
     expect(UNSUPPORTED_SCHEMA_CONSTRAINTS).toContain("maxProperties");
   });
+  it("includes encrypted", () => {
+    expect(UNSUPPORTED_SCHEMA_CONSTRAINTS).toContain("encrypted");
+  });
 });
 
 describe("cleanJSONSchemaForAntigravity strips errorMessage recursively (#4283)", () => {
@@ -88,6 +91,28 @@ describe("cleanJSONSchemaForAntigravity strips errorMessage recursively (#4283)"
     const result = cleanJSONSchemaForAntigravity(structuredClone(schema));
     expect(result).not.toHaveProperty("minProperties");
     expect(result).not.toHaveProperty("maxProperties");
+  });
+
+  it("strips encrypted keyword from Codex tool schema parameters", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        message: {
+          type: "string",
+          description: "Message text to send",
+          encrypted: true
+        },
+        target: {
+          type: "string",
+          description: "Target agent"
+        }
+      },
+      required: ["message", "target"]
+    };
+    const result = cleanJSONSchemaForAntigravity(structuredClone(schema));
+    expect(result.properties.message).not.toHaveProperty("encrypted");
+    expect(result.properties.message.type).toBe("string");
+    expect(result.properties.message.description).toBe("Message text to send");
   });
 
   it("leaves other valid fields intact", () => {

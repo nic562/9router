@@ -46,6 +46,56 @@ describe("Codex Responses API namespace unpacking & namespace restoring", () => 
     expect(req._toolNamespaceMap.get("exec_command")).toBeUndefined();
   });
 
+  it("strips encrypted keyword from namespace and flat tools", () => {
+    const body = {
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      tools: [
+        {
+          type: "namespace",
+          name: "collaboration",
+          description: "Sub-agent tools",
+          tools: [
+            {
+              type: "function",
+              name: "followup_task",
+              description: "Send follow up task",
+              parameters: {
+                type: "object",
+                properties: {
+                  message: { type: "string", description: "text", encrypted: true },
+                  target: { type: "string" }
+                },
+                required: ["message", "target"]
+              }
+            }
+          ]
+        },
+        {
+          type: "function",
+          function: {
+            name: "regular_tool",
+            description: "A regular tool",
+            parameters: {
+              type: "object",
+              properties: {
+                secret: { type: "string", encrypted: true }
+              }
+            }
+          }
+        }
+      ]
+    };
+
+    const req = openaiResponsesToOpenAIRequest("cx/gpt-5.6-sol", body, true, null);
+    const followup = req.tools.find(t => t.function.name === "followup_task");
+    expect(followup.function.parameters.properties.message).not.toHaveProperty("encrypted");
+    expect(followup.function.parameters.properties.message.type).toBe("string");
+
+    const regular = req.tools.find(t => t.function.name === "regular_tool");
+    expect(regular.function.parameters.properties.secret).not.toHaveProperty("encrypted");
+    expect(regular.function.parameters.properties.secret.type).toBe("string");
+  });
+
   it("restores namespace in output_item.added and output_item.done events", () => {
     const toolNamespaceMap = new Map([["spawn_agent", "multi_agent_v1"]]);
     const state = {

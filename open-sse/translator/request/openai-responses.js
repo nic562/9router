@@ -223,7 +223,13 @@ export function openaiResponsesToOpenAIRequest(model, body, stream, credentials)
           const fnName = typeof tool.function.name === "string" ? tool.function.name.trim() : "";
           if (!fnName || seenToolNames.has(fnName)) return null;
           seenToolNames.add(fnName);
-          return tool;
+          return {
+            ...tool,
+            function: {
+              ...tool.function,
+              parameters: normalizeToolParameters(tool.function.parameters)
+            }
+          };
         }
         // Responses API function/custom tool: { type, name, description, parameters|format }.
         // Chat Completions has no freeform custom-tool declaration, so expose custom
@@ -318,10 +324,29 @@ function extractInstructionsText(content) {
 /**
  * Ensure object schema always has properties field (required by Codex Responses API)
  */
+function stripSchemaExtensionKeywords(schema) {
+  if (!schema || typeof schema !== "object") return;
+  if (Array.isArray(schema)) {
+    for (const item of schema) stripSchemaExtensionKeywords(item);
+    return;
+  }
+  delete schema.encrypted;
+  if (schema.properties && typeof schema.properties === "object") {
+    for (const prop of Object.values(schema.properties)) {
+      stripSchemaExtensionKeywords(prop);
+    }
+  }
+  if (schema.items) {
+    stripSchemaExtensionKeywords(schema.items);
+  }
+}
+
 function normalizeToolParameters(params) {
   if (!params) return { type: "object", properties: {} };
-  if (params.type === "object" && !params.properties) return { ...params, properties: {} };
-  return params;
+  const cloned = structuredClone(params);
+  stripSchemaExtensionKeywords(cloned);
+  if (cloned.type === "object" && !cloned.properties) cloned.properties = {};
+  return cloned;
 }
 
 /**
