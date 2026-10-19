@@ -72,6 +72,8 @@ export const ERROR_RULES = [
   { text: "quota exceeded",           backoff: true },
   { text: "capacity",                 backoff: true },
   { text: "overloaded",               backoff: true },
+  { text: "unavailable",              cooldownMs: COOLDOWN.long },
+  { text: "not available in your region", cooldownMs: COOLDOWN.long },
 
   // --- Status-based rules (fallback when text doesn't match) ---
   { status: 400, fallback: false, cooldownMs: 0 },
@@ -83,6 +85,7 @@ export const ERROR_RULES = [
   { status: 413, fallback: false, cooldownMs: 0 },
   { status: 415, fallback: false, cooldownMs: 0 },
   { status: 422, fallback: false, cooldownMs: 0 },
+  { status: 451, cooldownMs: COOLDOWN.long },
   { status: 499, fallback: false, cooldownMs: 0 },
   { status: 429, backoff: true },
 ];

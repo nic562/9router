@@ -56,6 +56,21 @@ export default function AddCustomSystemoneModal({ isOpen, onClose, onCreated, on
       });
       const data = await res.json();
       if (res.ok) {
+        if (!isEdit && checkKey.trim()) {
+          try {
+            await fetch("/api/providers", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: data.node.id,
+                apiKey: checkKey.trim(),
+                name: formData.name.trim(),
+              }),
+            });
+          } catch (e) {
+            console.error("Failed to auto-create connection:", e);
+          }
+        }
         if (isEdit) onSaved?.(data.node);
         else onCreated?.(data.node);
       }

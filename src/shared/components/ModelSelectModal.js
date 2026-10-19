@@ -7,7 +7,7 @@ import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
-import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomSystemoneProvider, isCustomEmbeddingProvider, getProviderAlias } from "@/shared/constants/providers";
 import { parseSearchQuery, matchesSearch } from "@/shared/utils/modelSearchFilter";
 import { getDeactivatedProviderIds } from "@/shared/utils/connectionStatus";
 
@@ -81,6 +81,7 @@ export default function ModelSelectModal({
   onDeselectBatch,
   selectedModel,
   activeProviders = [],
+  providerNodes: propProviderNodes = null,
   title = "Select Model",
   size = "lg",
   modelAliases = {},
@@ -116,7 +117,12 @@ export default function ModelSelectModal({
   const { getCaps } = useModelCaps();
   const [searchQuery, setSearchQuery] = useState("");
   const [combos, setCombos] = useState([]);
-  const [providerNodes, setProviderNodes] = useState([]);
+  const [fetchedProviderNodes, setFetchedProviderNodes] = useState([]);
+  const effectiveProviderNodes = useMemo(() => {
+    return Array.isArray(propProviderNodes) && propProviderNodes.length > 0
+      ? propProviderNodes
+      : fetchedProviderNodes;
+  }, [propProviderNodes, fetchedProviderNodes]);
   const [customModels, setCustomModels] = useState([]);
   const [disabledModels, setDisabledModels] = useState({});
 
@@ -124,8 +130,11 @@ export default function ModelSelectModal({
   const filteredActiveProviders = useMemo(() => {
     const activeOnly = effectiveConnections.filter((p) => p && p.isActive !== false);
     if (!kindFilter) return activeOnly;
-    const typedKinds = new Set(["image", "tts", "stt", "embedding", "imageToText"]);
+    const typedKinds = new Set(["image", "tts", "stt", "embedding", "imageToText", "systemone"]);
     return activeOnly.filter((p) => {
+      if (isCustomSystemoneProvider(p.provider) || effectiveProviderNodes.some((n) => n.id === p.provider && n.type === "custom-systemone")) {
+        return kindFilter === "systemone";
+      }
       if (isOpenAICompatibleProvider(p.provider)) {
         // If node has custom models of this kind or connection allows it
         const hasKindModel = customModels.some((m) => m.providerAlias === p.provider && getModelKind(m) === kindFilter);
@@ -135,7 +144,7 @@ export default function ModelSelectModal({
       const kinds = info?.serviceKinds || ["llm"];
       return kinds.includes(kindFilter);
     });
-  }, [effectiveConnections, kindFilter, customModels]);
+  }, [effectiveConnections, kindFilter, customModels, effectiveProviderNodes]);
 
   // Set of provider IDs that have connections configured, but ALL of them are deactivated (isActive === false)
   const deactivatedProviderIds = useMemo(() => {
@@ -185,10 +194,10 @@ export default function ModelSelectModal({
       const res = await fetch("/api/provider-nodes");
       if (!res.ok) throw new Error(`Failed to fetch provider nodes: ${res.status}`);
       const data = await res.json();
-      setProviderNodes(data.nodes || []);
+      setFetchedProviderNodes(data.nodes || []);
     } catch (error) {
       console.error("Error fetching provider nodes:", error);
-      setProviderNodes([]);
+      setFetchedProviderNodes([]);
     }
   };
 
@@ -237,7 +246,7 @@ export default function ModelSelectModal({
     // Kinds where the provider IS the model (no per-model selection needed)
     const PROVIDER_AS_MODEL_KINDS = new Set(["webSearch", "webFetch"]);
     // Kinds that map directly to model.type field
-    const TYPED_KINDS = new Set(["image", "tts", "stt", "embedding", "imageToText"]);
+    const TYPED_KINDS = new Set(["image", "tts", "stt", "embedding", "imageToText", "systemone"]);
     // For these kinds, providers without hardcoded models can still be picked (provider-as-model fallback)
     const ALLOW_PROVIDER_FALLBACK_KINDS = new Set(["tts", "image", "webFetch"]);
 
@@ -265,7 +274,7 @@ export default function ModelSelectModal({
     // key, so gating on connections hides models the user already added. These nodes
     // are LLM-only, so only surface them when no kind filter is active.
     // See #4177, #2113, #2119, #1988.
-    const existingNodeIds = new Set((providerNodes || []).map((n) => n?.id).filter(Boolean));
+    const existingNodeIds = new Set((effectiveProviderNodes || []).map((n) => n?.id).filter(Boolean));
     const compatibleNodeIds = kindFilter
       ? []
       : customModels
@@ -276,11 +285,18 @@ export default function ModelSelectModal({
             !deactivatedProviderIds.has(alias)
           );
 
+    const customSystemoneNodeIds = kindFilter === "systemone"
+      ? (effectiveProviderNodes || [])
+          .filter((n) => (isCustomSystemoneProvider(n?.id) || n?.type === "custom-systemone") && !deactivatedProviderIds.has(n.id))
+          .map((n) => n.id)
+      : [];
+
     // Only show connected providers (including both standard and custom)
     const providerIdsToShow = new Set([
-      ...activeConnectionIds,  // Only connected providers
-      ...noAuthIds,            // No-auth providers (kind-filtered)
-      ...compatibleNodeIds,    // Compatible nodes with user-added models
+      ...activeConnectionIds,     // Only connected providers
+      ...noAuthIds,               // No-auth providers (kind-filtered)
+      ...compatibleNodeIds,       // Compatible nodes with user-added models
+      ...customSystemoneNodeIds,  // Custom System One nodes
     ].filter((id) => !deactivatedProviderIds.has(id)));
 
     // Sort by PROVIDER_ORDER
@@ -293,7 +309,8 @@ export default function ModelSelectModal({
     sortedProviderIds.forEach((providerId) => {
       const alias = getProviderAlias(providerId);
       const providerInfo = allProviders[providerId] || { name: providerId, color: "#666" };
-      const isCustomProvider = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
+      const isCustomSystemone = isCustomSystemoneProvider(providerId) || effectiveProviderNodes.some((n) => (n.id === providerId || n.prefix === providerId) && n.type === "custom-systemone");
+      const isCustomProvider = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId) || isCustomSystemone;
 
       // For provider-as-model kinds (webSearch/webFetch): emit a single entry where value === providerId
       if (kindFilter && PROVIDER_AS_MODEL_KINDS.has(kindFilter)) {
@@ -353,7 +370,7 @@ export default function ModelSelectModal({
 
         if (combined.length > 0) {
           // Check for custom name from providerNodes (for compatible providers)
-          const matchedNode = providerNodes.find(node => node.id === providerId);
+          const matchedNode = effectiveProviderNodes.find(node => node.id === providerId || node.prefix === providerId);
           const displayName = matchedNode?.name || providerInfo.name;
 
           groups[providerId] = {
@@ -364,6 +381,45 @@ export default function ModelSelectModal({
           };
         }
       } else if (isCustomProvider) {
+        if (isCustomSystemone) {
+          if (kindFilter && kindFilter !== "systemone") return;
+          const connection = filteredActiveProviders.find(p => p.provider === providerId) || effectiveConnections.find(p => p.provider === providerId);
+          const matchedNode = effectiveProviderNodes.find(node => node.id === providerId || node.prefix === providerId);
+          const displayName = matchedNode?.name || connection?.providerSpecificData?.nodeName || connection?.name || "Custom System One";
+          const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || providerId;
+
+          const registeredCustom = customModels
+            .filter((m) => (m.providerAlias === providerId || m.providerAlias === nodePrefix) && (!kindFilter || getModelKind(m) === "systemone"))
+            .map((m) => ({
+              id: m.id,
+              name: m.name || m.id,
+              value: `${nodePrefix}/${m.id}`,
+              kind: "systemone",
+              isCustom: true,
+            }));
+
+          // Only show user-added custom models; if none added yet, show a single placeholder
+          const modelsToShow = registeredCustom.length > 0
+            ? registeredCustom
+            : [{
+                id: `__placeholder__${providerId}`,
+                name: `${nodePrefix}/jev-latest`,
+                value: `${nodePrefix}/jev-latest`,
+                kind: "systemone",
+                isPlaceholder: true,
+              }];
+
+          groups[providerId] = {
+            name: displayName,
+            alias: nodePrefix,
+            color: "#6366F1",
+            models: modelsToShow,
+            isCustom: true,
+            hasModels: registeredCustom.length > 0,
+          };
+          return;
+        }
+
         // Custom (openai/anthropic-compatible) providers: only allow if not a typed kind, or if it has custom models matching kindFilter
         const hasMatchingCustomModel = kindFilter && customModels.some(
           (m) => m.providerAlias === providerId && getModelKind(m) === kindFilter
@@ -371,8 +427,8 @@ export default function ModelSelectModal({
         if (kindFilter && TYPED_KINDS.has(kindFilter) && !hasMatchingCustomModel) return;
         // Find connection object to get prefix synchronously without waiting for providerNodes fetch
         const connection = filteredActiveProviders.find(p => p.provider === providerId) || effectiveConnections.find(p => p.provider === providerId);
-        const matchedNode = providerNodes.find(node => node.id === providerId);
-        const displayName = matchedNode?.name || connection?.name || providerInfo.name;
+        const matchedNode = effectiveProviderNodes.find(node => node.id === providerId || node.prefix === providerId);
+        const displayName = matchedNode?.name || connection?.providerSpecificData?.nodeName || connection?.name || providerInfo.name;
         const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || providerId;
 
         // Aliases are stored using the raw providerId as key (e.g. "openai-compatible-chat-<uuid>/glm-4.7"),
@@ -388,7 +444,7 @@ export default function ModelSelectModal({
         // Merge custom models registered via /api/models/custom for this provider
         // providerAlias in DB uses the raw providerId, not the display prefix
         const registeredCustom = customModels
-          .filter((m) => m.providerAlias === providerId)
+          .filter((m) => m.providerAlias === providerId || m.providerAlias === nodePrefix)
           .map((m) => ({
             id: m.id,
             name: m.name || m.id,
@@ -514,7 +570,7 @@ export default function ModelSelectModal({
     });
 
     return groups;
-  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, effectiveConnections, deactivatedProviderIds, cursorModels, clineModels, clinepassModels, zedModels]);
+  }, [filteredActiveProviders, modelAliases, allProviders, effectiveProviderNodes, customModels, disabledModels, kindFilter, effectiveConnections, deactivatedProviderIds, cursorModels, clineModels, clinepassModels, zedModels]);
 
   // Parse search query into structured query (regex, positive tokens, negative tokens)
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
@@ -544,7 +600,7 @@ export default function ModelSelectModal({
         if (models.length === 0) return;
       }
       if (!parsedQuery.isEmpty) {
-        const providerNameMatches = matchesSearch(group.name, parsedQuery);
+        const providerNameMatches = matchesSearch(group.name, parsedQuery) || (group.alias && matchesSearch(group.alias, parsedQuery));
         const aliasMatches = allowProviderWildcard && (
           (group.alias && matchesSearch(group.alias, parsedQuery)) ||
           (providerId && matchesSearch(providerId, parsedQuery)) ||
@@ -886,6 +942,7 @@ ModelSelectModal.propTypes = {
       provider: PropTypes.string.isRequired,
     })
   ),
+  providerNodes: PropTypes.array,
   title: PropTypes.string,
   size: PropTypes.string,
   modelAliases: PropTypes.object,

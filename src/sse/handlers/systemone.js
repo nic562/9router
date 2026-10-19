@@ -6,9 +6,10 @@ import {
   isValidApiKey,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
-import { getModelInfo } from "../services/model.js";
-import { getKeyAccessContext, enforceKeyAccessResolved } from "../services/keyAccess.js";
+import { getModelInfo, getComboModels } from "../services/model.js";
+import { getKeyAccessContext, enforceKeyAccess } from "../services/keyAccess.js";
 import { handleSystemoneCore } from "open-sse/handlers/systemoneCore.js";
+import { handleComboChat } from "open-sse/services/combo.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import * as log from "../utils/logger.js";
@@ -16,58 +17,9 @@ import { checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { saveRequestUsage } from "@/lib/usageDb.js";
 
 /**
- * Handle System One (Jev) decision requests for the Next.js server.
- * Follows the same auth + account-fallback pattern as handleEmbeddings.
- *
- * @param {Request} request
+ * Handle a single System One model request through account credentials fallback loop.
  */
-export async function handleSystemone(request) {
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    log.warn("SYSTEMONE", "Invalid JSON body");
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
-  }
-
-  const url = new URL(request.url);
-  const modelStr = body.model;
-
-  log.request("POST", `${url.pathname} | ${modelStr}`);
-
-  // Log API key (masked)
-  const apiKey = extractApiKey(request);
-  if (apiKey) {
-    log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
-  } else {
-    log.debug("AUTH", "No API key provided (local mode)");
-  }
-
-  // Enforce API key if enabled in settings
-  const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
-  }
-
-  if (!modelStr) {
-    log.warn("SYSTEMONE", "Missing model");
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
-  }
-  if (body.state === undefined || body.state === null) {
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: state");
-  }
-  if (!body.questions || typeof body.questions !== "object" || Array.isArray(body.questions)) {
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: questions");
-  }
-
+async function handleSingleModelSystemone(body, modelStr, { apiKey, endpoint }) {
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) {
     log.warn("SYSTEMONE", "Invalid model format", { model: modelStr });
@@ -76,23 +28,19 @@ export async function handleSystemone(request) {
 
   const { provider, model } = modelInfo;
 
-  // Per-key access control: checked before any credential lookup.
-  const keyAccessDenied = await enforceKeyAccessResolved(await getKeyAccessContext(request), modelStr, provider, model);
-  if (keyAccessDenied) return keyAccessDenied;
-
   if (modelStr !== `${provider}/${model}`) {
     log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
   } else {
     log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
   }
 
-  // Credential + fallback loop (mirrors handleEmbeddings)
+  // Credential + fallback loop
   const excludeConnectionIds = new Set();
   let lastError = null;
   let lastStatus = null;
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { kind: "systemone" });
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {
@@ -132,7 +80,7 @@ export async function handleSystemone(request) {
           model,
           connectionId: credentials.connectionId,
           apiKey,
-          endpoint: url.pathname,
+          endpoint: endpoint || "/v1/systemone",
           tokens: {
             ...result.usage,
             total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens,
@@ -155,4 +103,84 @@ export async function handleSystemone(request) {
 
     return result.response;
   }
+}
+
+/**
+ * Handle System One (Jev) decision requests for the Next.js server.
+ * Supports single models, model aliases, and System One combos with fallback / round-robin.
+ *
+ * @param {Request} request
+ */
+export async function handleSystemone(request) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    log.warn("SYSTEMONE", "Invalid JSON body");
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
+  }
+
+  const url = new URL(request.url);
+  const modelStr = body.model;
+  const endpoint = url.pathname || "/v1/systemone";
+
+  log.request("POST", `${endpoint} | ${modelStr}`);
+
+  // Log API key (masked)
+  const apiKey = extractApiKey(request);
+  if (apiKey) {
+    log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
+  } else {
+    log.debug("AUTH", "No API key provided (local mode)");
+  }
+
+  // Enforce API key if enabled in settings
+  const settings = await getSettings();
+  if (settings.requireApiKey) {
+    if (!apiKey) {
+      log.warn("AUTH", "Missing API key (requireApiKey=true)");
+      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
+    }
+    const valid = await isValidApiKey(apiKey);
+    if (!valid) {
+      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    }
+  }
+
+  if (typeof modelStr !== "string" || !modelStr) {
+    log.warn("SYSTEMONE", "Missing model");
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
+  }
+  if (body.state === undefined || body.state === null) {
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: state");
+  }
+  if (!body.questions || typeof body.questions !== "object" || Array.isArray(body.questions)) {
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: questions");
+  }
+
+  // Per-key access control: checked before combo expansion or credential lookup.
+  const keyAccessDenied = await enforceKeyAccess(await getKeyAccessContext(request), modelStr);
+  if (keyAccessDenied) return keyAccessDenied;
+
+  // Combo expansion: model may be a combo name → run fallback/round-robin across models
+  const comboModels = await getComboModels(modelStr);
+  if (comboModels) {
+    const comboStrategies = settings.comboStrategies || {};
+    const comboStrategy = comboStrategies[modelStr]?.fallbackStrategy || settings.comboStrategy || "fallback";
+    const comboStickyLimit = settings.comboStickyRoundRobinLimit;
+    log.info("SYSTEMONE", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    return handleComboChat({
+      body,
+      models: comboModels,
+      handleSingleModel: (b, m) => handleSingleModelSystemone(b, m, { apiKey, endpoint }),
+      log,
+      comboName: modelStr,
+      signal: request?.signal,
+      comboStrategy,
+      comboStickyLimit,
+    });
+  }
+
+  return handleSingleModelSystemone(body, modelStr, { apiKey, endpoint });
 }

@@ -1,9 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { isCustomSystemoneProvider, CUSTOM_SYSTEMONE_PREFIX } from "@/shared/constants/providers";
 import { handleSystemoneCore } from "../../open-sse/handlers/systemoneCore.js";
 import * as proxyFetchModule from "../../open-sse/utils/proxyFetch.js";
 
 describe("Custom System One provider node support", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it("identifies custom systemone provider ids", () => {
     expect(isCustomSystemoneProvider("custom-systemone-12345")).toBe(true);
     expect(isCustomSystemoneProvider("openai-compatible-chat-123")).toBe(false);

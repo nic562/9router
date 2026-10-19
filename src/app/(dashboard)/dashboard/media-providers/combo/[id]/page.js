@@ -26,6 +26,7 @@ const KIND_LABELS = {
   webFetch: "Web Fetch",
   image: "Text to Image",
   tts: "Text To Speech",
+  systemone: "System One",
 };
 
 const EXAMPLE_PATHS = {
@@ -33,6 +34,7 @@ const EXAMPLE_PATHS = {
   webFetch: "/v1/web/fetch",
   image: "/v1/images/generations",
   tts: "/v1/audio/speech",
+  systemone: "/v1/systemone",
 };
 
 const EXAMPLE_BODIES = {
@@ -40,6 +42,16 @@ const EXAMPLE_BODIES = {
   webFetch: (n) => ({ model: n, url: "https://example.com", format: "markdown" }),
   image: (n) => ({ model: n, prompt: "A cute cat playing piano", n: 1, size: "1024x1024" }),
   tts: (n) => ({ model: n, input: "Hello, this is a test.", voice: "alloy" }),
+  systemone: (n) => ({
+    model: n,
+    state: "My order has not arrived and I need an immediate update.",
+    questions: {
+      is_urgent: {
+        type: "noul",
+        instructions: "Does this request require urgent customer service attention?",
+      },
+    },
+  }),
 };
 
 // Map combo.kind → listing route to go back to
@@ -49,7 +61,7 @@ function getListingHref(kind) {
 }
 
 
-function SortableProviderRow({ id, entry, idx, total, onMove, onRemove }) {
+function SortableProviderRow({ id, entry, idx, total, providerNodes = [], onMove, onRemove }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -59,6 +71,8 @@ function SortableProviderRow({ id, entry, idx, total, onMove, onRemove }) {
 
   const { providerId, model } = parseModelEntry(entry);
   const p = AI_PROVIDERS[providerId];
+  const matchedNode = (providerNodes || []).find((n) => n.prefix === providerId || n.id === providerId);
+  const displayName = matchedNode?.name || p?.name || providerId;
 
   return (
     <div
@@ -83,15 +97,15 @@ function SortableProviderRow({ id, entry, idx, total, onMove, onRemove }) {
 
       <span className="text-xs text-text-muted w-5 text-center shrink-0">{idx + 1}</span>
       <ProviderIcon
-        src={`/providers/${providerId}.png`}
-        alt={p?.name || providerId}
+        src={p ? `/providers/${providerId}.png` : undefined}
+        alt={displayName}
         size={24}
         className="object-contain rounded shrink-0"
-        fallbackText={p?.textIcon || providerId.slice(0, 2).toUpperCase()}
-        fallbackColor={p?.color}
+        fallbackText={p?.textIcon || matchedNode?.name?.slice(0, 2).toUpperCase() || providerId.slice(0, 2).toUpperCase()}
+        fallbackColor={p?.color || (matchedNode ? "#6366F1" : undefined)}
       />
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate">{p?.name || providerId}</div>
+        <div className="text-sm font-medium truncate">{displayName}</div>
         {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
       </div>
       <div className="flex items-center gap-0.5">
@@ -140,6 +154,7 @@ export default function ComboDetailPage() {
   const [apiKey, setApiKey] = useState("");
   const [connections, setConnections] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
+  const [providerNodes, setProviderNodes] = useState([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -163,14 +178,16 @@ export default function ComboDetailPage() {
 
   const fetchAll = async () => {
     try {
-      const [comboRes, settingsRes, logsRes, keysRes, connsRes, aliasesRes] = await Promise.all([
+      const [comboRes, settingsRes, logsRes, keysRes, connsRes, aliasesRes, nodesRes] = await Promise.all([
         fetch(`/api/combos/${id}`, { cache: "no-store" }),
         fetch("/api/settings", { cache: "no-store" }),
         fetch("/api/usage/logs", { cache: "no-store" }),
         fetch("/api/keys", { cache: "no-store" }),
         fetch("/api/providers", { cache: "no-store" }),
         fetch("/api/models/alias", { cache: "no-store" }),
+        fetch("/api/provider-nodes", { cache: "no-store" }),
       ]);
+      if (nodesRes.ok) setProviderNodes((await nodesRes.json()).nodes || []);
       if (aliasesRes.ok) setModelAliases((await aliasesRes.json()).aliases || {});
       if (keysRes.ok) {
         const k = await keysRes.json();
@@ -310,8 +327,9 @@ export default function ComboDetailPage() {
       setTestResult({ json: JSON.stringify(maskB64(data), null, 2), imageUrl, latencyMs });
     } catch (e) {
       setTestError(e.message || "Network error");
+    } finally {
+      setTesting(false);
     }
-    setTesting(false);
   };
 
   // Mask large b64_json strings to keep JSON view readable
@@ -406,6 +424,7 @@ export default function ComboDetailPage() {
                     entry={entry}
                     idx={idx}
                     total={providers.length}
+                    providerNodes={providerNodes}
                     onMove={handleMove}
                     onRemove={handleRemoveProvider}
                   />
@@ -487,6 +506,7 @@ export default function ComboDetailPage() {
           onSelect={handleAddModel}
           onDeselect={handleDeselectModel}
           activeProviders={connections}
+          providerNodes={providerNodes}
           modelAliases={modelAliases}
           title={`Add ${kindLabel} Model`}
           kindFilter={combo.kind}
