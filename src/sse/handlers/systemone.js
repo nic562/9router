@@ -119,6 +119,7 @@ export async function handleSystemone(request) {
       modelInfo: { provider, model },
       credentials: refreshedCredentials,
       log,
+      proxyOptions: refreshedCredentials?.providerSpecificData || null,
       onRequestSuccess: async () => {
         await clearAccountError(credentials.connectionId, credentials, model);
       }

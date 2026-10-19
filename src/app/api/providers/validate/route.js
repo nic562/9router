@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderNodeById } from "@/models";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, isCustomSystemoneProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
@@ -12,6 +12,8 @@ import {
   isNousApiKeyAccepted,
 } from "open-sse/services/nous.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
@@ -50,14 +52,14 @@ async function probeWebProvider(provider, apiKey) {
 
 // Probe a media provider (tts/embedding/stt/image/video) using *Config.
 // Returns true if API key is accepted; null to skip (let default handler decide).
-async function probeMediaProvider(provider, apiKey) {
+async function probeMediaProvider(provider, apiKey, providerSpecificData = null, effectiveProxy = null) {
   const p = AI_PROVIDERS[provider];
   if (!p) return null;
-  const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText"]);
+  const MEDIA_KINDS = new Set(["tts", "embedding", "stt", "image", "video", "music", "imageToText", "systemone"]);
   const kinds = p.serviceKinds || ["llm"];
   const isMediaOnly = kinds.every((k) => MEDIA_KINDS.has(k));
   if (!isMediaOnly) return null;
-  const cfg = p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig;
+  const cfg = p.ttsConfig || p.sttConfig || p.embeddingConfig || p.imageConfig || p.videoConfig || p.musicConfig || p.systemoneConfig;
   // No probe config → best-effort accept (validate at usage time)
   if (!cfg) return true;
   if (p.noAuth || cfg.authType === "none") return true;
@@ -78,10 +80,18 @@ async function probeMediaProvider(provider, apiKey) {
   }
 
   const method = cfg.method || "POST";
-  const res = await fetch(cfg.baseUrl, {
+  const targetUrl = providerSpecificData?.baseUrl || cfg.baseUrl;
+  const body = method === "GET"
+    ? undefined
+    : (p.systemoneConfig
+        ? JSON.stringify({ model: getDefaultModel(provider) || "jev-latest", state: "ping", questions: { probe: { type: "noul", instructions: "ping" } } })
+        : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }));
+
+  const fetchFn = effectiveProxy ? (u, o) => proxyAwareFetch(u, o, effectiveProxy) : fetch;
+  const res = await fetchFn(targetUrl, {
     method,
     headers,
-    body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
+    body,
     signal: AbortSignal.timeout(8000),
   });
   return res.status !== 401 && res.status !== 403;
@@ -93,6 +103,12 @@ export async function POST(request) {
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
     const { apiKey, providerSpecificData } = body;
+    const effectiveProxy = await resolveConnectionProxyConfig({
+      proxyPoolId: body.proxyPoolId || null,
+      ...(providerSpecificData || {}),
+      connectionProxyUrl: body.connectionProxyUrl,
+      connectionProxyEnabled: body.connectionProxyEnabled,
+    });
 
     const isNoAuth = AI_PROVIDERS[provider]?.noAuth === true;
     // Same exemption as the create route: a provider can name a providerSpecificData field
@@ -121,6 +137,34 @@ export async function POST(request) {
         return NextResponse.json({
           valid: isValid,
           error: isValid ? null : "Invalid API key",
+        });
+      }
+
+      // Custom System One nodes: probe endpoint directly
+      if (isCustomSystemoneProvider(provider)) {
+        const node = await getProviderNodeById(provider);
+        if (!node) {
+          return NextResponse.json({ error: "Custom System One node not found" }, { status: 404 });
+        }
+        const targetUrl = node.baseUrl?.trim() || "https://api.typesafe.ai/v1/systemone";
+        const fetchFn = effectiveProxy ? (u, o) => proxyAwareFetch(u, o, effectiveProxy) : fetch;
+        const res = await fetchFn(targetUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "jev-latest",
+            state: "ping",
+            questions: { probe: { type: "noul", instructions: "ping" } },
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const valid = res.status !== 401 && res.status !== 403;
+        return NextResponse.json({
+          valid,
+          error: valid ? null : "Invalid API key or base URL",
         });
       }
 
@@ -260,7 +304,7 @@ export async function POST(request) {
       }
 
       // Generic probe for tts/embedding providers (config-driven)
-      const mediaResult = await probeMediaProvider(provider, apiKey);
+      const mediaResult = await probeMediaProvider(provider, apiKey, providerSpecificData, effectiveProxy);
       if (mediaResult !== null) {
         return NextResponse.json({
           valid: mediaResult,

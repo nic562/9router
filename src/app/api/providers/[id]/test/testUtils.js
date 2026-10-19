@@ -1,7 +1,7 @@
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomSystemoneProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { probeBedrockCredentials } from "open-sse/executors/bedrock.js";
 import { resolveOllamaLocalHost, PROVIDERS } from "open-sse/config/providers.js";
@@ -518,6 +518,29 @@ async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null
 }
 
 async function testApiKeyConnection(connection, effectiveProxy = null) {
+  if (isCustomSystemoneProvider(connection.provider)) {
+    const targetUrl = connection.providerSpecificData?.baseUrl || "https://api.typesafe.ai/v1/systemone";
+    try {
+      const res = await fetchWithConnectionProxy(targetUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${connection.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: connection.defaultModel || "jev-latest",
+          state: "ping",
+          questions: {
+            probe: { type: "noul", instructions: "ping" },
+          },
+        }),
+      }, effectiveProxy);
+      const valid = res.status !== 401 && res.status !== 403;
+      return { valid, error: valid ? null : "Invalid API key or base URL" };
+    } catch (err) {
+      return { valid: false, error: err.message };
+    }
+  }
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
@@ -913,6 +936,26 @@ case "llm7": {
           },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
+      }
+      case "custom-systemone":
+      case "v1m": {
+        const targetUrl = connection.providerSpecificData?.baseUrl || AI_PROVIDERS[connection.provider]?.systemoneConfig?.baseUrl || "https://api.typesafe.ai/v1/systemone";
+        const testRes = await fetchWithConnectionProxy(targetUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(connection.apiKey ? { Authorization: `Bearer ${connection.apiKey}` } : {}),
+          },
+          body: JSON.stringify({
+            model: connection.defaultModel || getDefaultModel(connection.provider) || "jev-latest",
+            state: "ping",
+            questions: {
+              probe: { type: "noul", instructions: "ping" },
+            },
+          }),
+        }, effectiveProxy);
+        const valid = testRes.status !== 401 && testRes.status !== 403;
+        return { valid, error: valid ? null : "Invalid API key or base URL" };
       }
       default:
         return { valid: false, error: "Provider test not supported" };

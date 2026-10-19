@@ -3,6 +3,7 @@ import { HTTP_STATUS, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.j
 import { PROVIDER_MEDIA } from "../providers/index.js";
 import { getModelUpstreamId } from "../config/providerModels.js";
 import { generateSessionId } from "../executors/opencode-zen.js";
+import { proxyAwareFetch } from "../utils/proxyFetch.js";
 
 /**
  * Core System One (Jev) handler — native decision payload pass-through.
@@ -17,6 +18,7 @@ export async function handleSystemoneCore({
   credentials,
   log,
   onRequestSuccess,
+  proxyOptions = null,
 }) {
   const { provider, model } = modelInfo;
   const cfg = PROVIDER_MEDIA[provider]?.systemoneConfig;
@@ -55,7 +57,7 @@ export async function handleSystemoneCore({
   const headers = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(cfg.headers || {}),
+    ...(cfg?.headers || {}),
     // Zen lanes expect the official client session header on every request.
     "x-opencode-session": generateSessionId(),
   };
@@ -64,16 +66,18 @@ export async function handleSystemoneCore({
 
   log?.debug?.("SYSTEMONE", `${provider.toUpperCase()} | ${model}`);
 
+  const effectiveProxy = proxyOptions || credentials?.providerSpecificData || null;
+
   let providerResponse;
   try {
-    providerResponse = await fetch(targetUrl, {
+    providerResponse = await proxyAwareFetch(targetUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
       ...(typeof AbortSignal?.timeout === "function"
         ? { signal: AbortSignal.timeout(FETCH_CONNECT_TIMEOUT_MS) }
         : {}),
-    });
+    }, effectiveProxy);
   } catch (error) {
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     log?.debug?.("SYSTEMONE", `Fetch error: ${errMsg}`);

@@ -59,6 +59,12 @@ export async function getModelInfo(modelStr) {
       if (matchedEmbedding) {
         return { provider: matchedEmbedding.id, model: parsed.model };
       }
+
+      const systemoneNodes = await getProviderNodes({ type: "custom-systemone" });
+      const matchedSystemone = systemoneNodes.find((node) => node.prefix === parsed.providerAlias);
+      if (matchedSystemone) {
+        return { provider: matchedSystemone.id, model: parsed.model };
+      }
     }
     return {
       provider: parsed.provider,

@@ -212,7 +212,7 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
       const res = await fetch("/api/providers/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, apiKey: formData.apiKey }),
+        body: JSON.stringify({ provider, apiKey: formData.apiKey, proxyPoolId: formData.proxyPoolId === NONE ? null : formData.proxyPoolId }),
       });
       const data = await res.json();
       setValidationResult(data.valid ? "success" : "failed");
@@ -230,7 +230,7 @@ function AddApiKeyModal({ isOpen, provider, providerName, proxyPools, onSave, on
         const res = await fetch("/api/providers/validate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider, apiKey: formData.apiKey }),
+          body: JSON.stringify({ provider, apiKey: formData.apiKey, proxyPoolId: formData.proxyPoolId === NONE ? null : formData.proxyPoolId }),
         });
         const data = await res.json();
         isValid = !!data.valid;

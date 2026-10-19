@@ -75,6 +75,38 @@ export async function POST(request) {
       }
     }
 
+    // Custom System One Validation - test POST with simple probe question
+    if (type === "custom-systemone") {
+      const normalizedBase = baseUrl.trim();
+      const model = modelId?.trim() || "jev-latest";
+      const sysRes = await fetchWithTimeout(normalizedBase, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          state: "ping",
+          questions: {
+            probe: { type: "noul", instructions: "ping" },
+          },
+        }),
+      });
+      if (sysRes.ok) {
+        return NextResponse.json({ valid: true, method: "systemone" });
+      }
+      if (sysRes.status === 401 || sysRes.status === 403) {
+        return NextResponse.json({ valid: false, error: "API key unauthorized" });
+      }
+      const errBody = await sysRes.text().catch(() => "");
+      return NextResponse.json({
+        valid: false,
+        error: `System One request failed (${sysRes.status})${errBody ? `: ${errBody.slice(0, 200)}` : ""}`,
+        method: "systemone",
+      });
+    }
+
     // Custom Embedding Validation - test POST /embeddings directly
     if (type === "custom-embedding") {
       const normalizedBase = baseUrl.trim().replace(/\/$/, "");

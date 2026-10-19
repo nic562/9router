@@ -41,6 +41,10 @@ export async function PUT(request, { params }) {
     }
 
     // Sanitize Base URL for Custom Embedding (strip trailing slash and /embeddings)
+    if (node.type === "custom-systemone") {
+      sanitizedBaseUrl = sanitizedBaseUrl.replace(/\/$/, "");
+    }
+
     if (node.type === "custom-embedding") {
       sanitizedBaseUrl = sanitizedBaseUrl.replace(/\/$/, "");
       if (sanitizedBaseUrl.endsWith("/embeddings")) {

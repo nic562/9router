@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderConnectionById } from "@/models";
-import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomSystemoneProvider } from "@/shared/constants/providers";
 import { GEMINI_CONFIG, ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 import { refreshGoogleToken, refreshCodexToken, updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveOllamaLocalHost } from "open-sse/config/providers.js";
@@ -552,6 +552,17 @@ export async function GET(request, { params }) {
 
     if (!connection) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+    }
+
+    if (isCustomSystemoneProvider(connection.provider)) {
+      return NextResponse.json({
+        provider: connection.provider,
+        connectionId: connection.id,
+        models: [
+          { id: "jev-latest", name: "Jev Latest", kind: "systemone" },
+          { id: "jev-1.13", name: "Jev 1.13", kind: "systemone" },
+        ],
+      });
     }
 
     if (isOpenAICompatibleProvider(connection.provider)) {
