@@ -575,11 +575,17 @@ export default function ModelSelectModal({
   // Parse search query into structured query (regex, positive tokens, negative tokens)
   const parsedQuery = useMemo(() => parseSearchQuery(searchQuery), [searchQuery]);
 
-  // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
+  // Filter combos by search query
   const filteredCombos = useMemo(() => {
-    if (kindFilter || capFilter) return [];
-    if (parsedQuery.isEmpty) return combos;
-    return combos.filter(c => matchesSearch(c.name, parsedQuery));
+    if (capFilter) return [];
+    let list = combos;
+    if (kindFilter) {
+      list = list.filter((c) => c.kind === kindFilter);
+    } else {
+      list = list.filter((c) => !c.kind || c.kind === "llm");
+    }
+    if (parsedQuery.isEmpty) return list;
+    return list.filter(c => matchesSearch(c.name, parsedQuery));
   }, [combos, parsedQuery, kindFilter, capFilter]);
 
   // Sort models alphabetically, with added models floated to top
