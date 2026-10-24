@@ -10,6 +10,7 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers";
+import Link from "next/link";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -563,6 +564,7 @@ export default function CombosPage() {
                   combo={combo}
                   getCaps={getCaps}
                   comboByName={comboByName}
+                  combos={combos}
                   activeProviders={activeProviders}
                   copied={copied}
                   onCopy={copy}
@@ -633,10 +635,29 @@ const fmtK = (n) => {
   return `${Math.round(n / 1000)}k`;
 };
 
-function getRouterModelStatus(routerModel, activeProviders) {
+function getRouterModelStatus(routerModel, activeProviders, combos = []) {
   const effectiveModel = (typeof routerModel === "string" && routerModel.trim())
     ? routerModel.trim()
     : "oc/jev-1.13-free";
+
+  // Check if routerModel is a Combo
+  const targetCombo = combos.find((c) => c.name === effectiveModel);
+  if (targetCombo) {
+    const memberCount = targetCombo.models?.length || 0;
+    if (memberCount > 0) {
+      return {
+        ready: true,
+        label: `Combo (${memberCount})`,
+        href: `/dashboard/media-providers/combo/${targetCombo.id}`,
+      };
+    }
+    return {
+      ready: false,
+      label: "Empty Combo",
+      href: `/dashboard/media-providers/combo/${targetCombo.id}`,
+    };
+  }
+
   const slashIdx = effectiveModel.indexOf("/");
   const prefix = slashIdx !== -1 ? effectiveModel.slice(0, slashIdx) : effectiveModel;
   const providerId = resolveProviderId(prefix);
@@ -644,18 +665,23 @@ function getRouterModelStatus(routerModel, activeProviders) {
   const isNoAuth = !!providerDef?.noAuth;
 
   if (isNoAuth) {
-    return { ready: true, label: "Ready (Free)", providerId };
+    return { ready: true, label: "Ready (Free)", providerId, href: null };
   }
 
   const isConnected = (activeProviders || []).some((c) => c.provider === providerId && c.isActive !== false);
   if (isConnected) {
-    return { ready: true, label: "Connected", providerId };
+    return { ready: true, label: "Connected", providerId, href: null };
   }
 
-  return { ready: false, label: "Not configured", providerId };
+  return {
+    ready: false,
+    label: "Not configured",
+    providerId,
+    href: `/dashboard/media-providers/systemone/${providerId}`,
+  };
 }
 
-function ComboCard({ combo, getCaps, comboByName = {}, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy, selected = false, onToggleSelect }) {
+function ComboCard({ combo, getCaps, comboByName = {}, combos = [], activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy, selected = false, onToggleSelect }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
   const [showRouterSelect, setShowRouterSelect] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
@@ -739,7 +765,7 @@ function ComboCard({ combo, getCaps, comboByName = {}, activeProviders = [], cop
             )}
             {/* Smart: System One router picker and policy modal trigger */}
             {isSmart && (() => {
-              const routerStatus = getRouterModelStatus(routerModel, activeProviders);
+              const routerStatus = getRouterModelStatus(routerModel, activeProviders, combos);
               const policyLabel = getPolicyBadgeLabel(strategy);
               return (
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
@@ -757,13 +783,15 @@ function ComboCard({ combo, getCaps, comboByName = {}, activeProviders = [], cop
                   ) : (
                     <span className="inline-flex items-center gap-1">
                       <Badge variant="error" size="sm" dot>{routerStatus.label}</Badge>
-                      <Link
-                        href={`/dashboard/media-providers/systemone/${routerStatus.providerId}`}
-                        className="text-[10px] text-primary hover:underline font-medium"
-                        title="Configure in Media Providers"
-                      >
-                        Configure
-                      </Link>
+                      {routerStatus.href && (
+                        <Link
+                          href={routerStatus.href}
+                          className="text-[10px] text-primary hover:underline font-medium"
+                          title="Configure"
+                        >
+                          Configure
+                        </Link>
+                      )}
                     </span>
                   )}
                   <button
