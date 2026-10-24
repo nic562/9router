@@ -99,12 +99,13 @@ export default function CombosPage() {
   // Case-insensitive search over the combo name and its model ids, so both
   // "deepseek" and "deepseek-v4.1-flash" find the right rows.
   const normalizedQuery = searchQuery.trim().toLowerCase();
+  const llmCombos = combos.filter((c) => !c.kind || c.kind === "llm");
   const filteredCombos = normalizedQuery
-    ? combos.filter((c) => {
+    ? llmCombos.filter((c) => {
         if (String(c.name || "").toLowerCase().includes(normalizedQuery)) return true;
         return (c.models || []).some((m) => String(m).toLowerCase().includes(normalizedQuery));
       })
-    : combos;
+    : llmCombos;
 
   // Select-all follows the search: with a query active it must only reach the
   // rows on screen, otherwise the bulk Delete would take out hidden combos.
@@ -193,8 +194,8 @@ export default function CombosPage() {
       const providersData = await providersRes.json();
       const settingsData = settingsRes.ok ? await settingsRes.json() : {};
 
-      // Only LLM combos here - webSearch/webFetch combos belong to media-providers/web
-      if (combosRes.ok) setCombos((combosData.combos || []).filter(c => !c.kind || c.kind === "llm"));
+      // Keep all combos so routerStatus and combo references can resolve systemone/image combos
+      if (combosRes.ok) setCombos(combosData.combos || []);
       if (providersRes.ok) {
         setActiveProviders((providersData.connections || []).filter((c) => c.isActive !== false));
       }
