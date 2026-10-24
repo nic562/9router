@@ -3,14 +3,16 @@
 import { nowSec, urlToBase64, sizeToAspectRatio } from "./_base.js";
 import { getExecutor } from "../../executors/index.js";
 
+// Antigravity accepts up to 10 reference images per request
+const MAX_REFERENCE_IMAGES = 10;
+
 // Convert image input (data URI, public URL, or raw base64) to Gemini inlineData part
 async function resolveImageInput(input) {
   if (!input) return null;
 
-  // Object format { url: ... } or { b64_json: ... }
+  // Object format { url: ... }, { b64_json: ... }, { image_url: { url: ... } }, etc.
   if (typeof input === "object") {
-    if (input.url) input = input.url;
-    else if (input.b64_json) input = input.b64_json;
+    input = input.image_url?.url || input.url || input.data || input.b64_json;
   }
 
   if (typeof input !== "string") return null;
@@ -41,27 +43,19 @@ async function resolveImageInput(input) {
   return null;
 }
 
-// Extract all candidate input images from standard/extra fields
-function extractInputImages(body) {
-  const images = [];
-
-  // extra_body.image
-  if (Array.isArray(body.extra_body?.image)) {
-    images.push(...body.extra_body.image);
-  } else if (body.extra_body?.image) {
-    images.push(body.extra_body.image);
-  }
-
-  // top-level images array
-  if (Array.isArray(body.images)) {
-    images.push(...body.images);
-  }
-
-  // top-level image / image_url
-  if (body.image) images.push(body.image);
-  if (body.image_url) images.push(body.image_url);
-
-  return images.filter(Boolean);
+// Collect reference images from the accepted request field shapes
+function collectImageInputs(body) {
+  const candidates = [
+    body.reference_images,
+    body.images,
+    body.reference_image,
+    body.image,
+    body.image_url,
+    body.extra_body?.image,
+  ];
+  return candidates
+    .flatMap((v) => (Array.isArray(v) ? v : v ? [v] : []))
+    .slice(0, MAX_REFERENCE_IMAGES);
 }
 
 export default {
@@ -81,28 +75,33 @@ export default {
     const isImageModel = (m) => /image|imagen|image-generation/i.test(m || "");
     let targetModel = isImageModel(model) ? model : "gemini-3.1-flash-image";
 
-    // If body.size is provided, resolve aspect ratio and append to model
-    if (body.size && typeof body.size === "string") {
-      const ratio = sizeToAspectRatio(body.size);
+    // Aspect ratio: explicit body.aspect_ratio wins, then body.size
+    let ratio = null;
+    if (body.aspect_ratio && /^\d{1,2}:\d{1,2}$/.test(String(body.aspect_ratio))) {
+      ratio = String(body.aspect_ratio);
+    } else if (body.size && typeof body.size === "string") {
+      ratio = sizeToAspectRatio(body.size);
+    }
+    if (ratio) {
       const suffix = ratio.replace(":", "x");
       if (!targetModel.includes(suffix)) {
         targetModel = `${targetModel}-${suffix}`;
       }
     }
 
-    // Build parts: text prompt + optional input images for editing / multi-image reference
-    const parts = [];
+    // Gemini image models have no negative prompt param — fold it into the prompt text
+    const prompt = body.negative_prompt
+      ? `${body.prompt}\n\nNegative prompt: ${body.negative_prompt}`
+      : body.prompt;
 
-    // Resolve reference images
-    const rawImages = extractInputImages(body);
-    for (const img of rawImages) {
-      const inlineData = await resolveImageInput(img);
+    // Build parts: reference images first, then the text prompt
+    const parts = [];
+    for (const imageInput of collectImageInputs(body)) {
+      const inlineData = await resolveImageInput(imageInput);
       if (inlineData) parts.push(inlineData);
     }
-
-    // Append text prompt
-    if (body.prompt) {
-      parts.push({ text: body.prompt });
+    if (prompt) {
+      parts.push({ text: prompt });
     }
 
     const chatBody = {
@@ -122,7 +121,23 @@ export default {
 
     if (!result.response.ok) {
       const text = await result.response.text();
-      throw new Error(text || `HTTP ${result.response.status}`);
+      const err = new Error(text || `HTTP ${result.response.status}`);
+      err.status = result.response.status;
+      try {
+        const json = JSON.parse(text);
+        const details = json.error?.details || [];
+        for (const d of details) {
+          const resetTimeStr = d.metadata?.quotaResetTimeStamp;
+          if (resetTimeStr) {
+            const ms = new Date(resetTimeStr).getTime();
+            if (ms > Date.now()) {
+              err.resetsAtMs = ms;
+              break;
+            }
+          }
+        }
+      } catch {}
+      throw err;
     }
 
     return result.response.json();

@@ -9,8 +9,7 @@ async function resolveImageInput(input) {
   if (!input) return null;
 
   if (typeof input === "object") {
-    if (input.url) input = input.url;
-    else if (input.b64_json) input = input.b64_json;
+    input = input.image_url?.url || input.url || input.data || input.b64_json;
   }
 
   if (typeof input !== "string") return null;
@@ -39,14 +38,17 @@ async function resolveImageInput(input) {
 }
 
 function extractInputImages(body) {
-  const images = [];
-  if (Array.isArray(body.extra_body?.image)) images.push(...body.extra_body.image);
-  else if (body.extra_body?.image) images.push(body.extra_body.image);
-
-  if (Array.isArray(body.images)) images.push(...body.images);
-  if (body.image) images.push(body.image);
-  if (body.image_url) images.push(body.image_url);
-  return images.filter(Boolean);
+  const candidates = [
+    body.reference_images,
+    body.images,
+    body.reference_image,
+    body.image,
+    body.image_url,
+    body.extra_body?.image,
+  ];
+  return candidates
+    .flatMap((v) => (Array.isArray(v) ? v : v ? [v] : []))
+    .slice(0, 10);
 }
 
 function parseImageConfig(body, model) {
@@ -122,8 +124,12 @@ export default {
       if (inlineData) parts.push(inlineData);
     }
 
-    if (body.prompt) {
-      parts.push({ text: body.prompt });
+    const prompt = body.negative_prompt
+      ? `${body.prompt}\n\nNegative prompt: ${body.negative_prompt}`
+      : body.prompt;
+
+    if (prompt) {
+      parts.push({ text: prompt });
     }
 
     const imageConfig = parseImageConfig(body, model);

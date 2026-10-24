@@ -5,6 +5,25 @@ import { getModelUpstreamId } from "../config/providerModels.js";
 import { generateSessionId } from "../executors/opencode-zen.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 
+const OPENCODE_PROVIDERS = new Set(["opencode", "opencode-zen"]);
+
+/**
+ * Resolve the System One URL. A saved host override is joined with the registry
+ * `path` (e.g. "/v1/systemone") without doubling a "/v1" or "/v1/systemone" the
+ * user already included. Without `path`, the override is used as a full URL.
+ */
+export function buildSystemoneUrl(override, cfg) {
+  const base = override?.trim();
+  if (!base) return cfg?.baseUrl;
+  if (!cfg?.path) return base;
+  const host = base.replace(/\/+$/, "");
+  const path = cfg.path.replace(/\/+$/, "");
+  if (host.endsWith(path)) return host;
+  const prefix = path.slice(0, path.lastIndexOf("/"));
+  if (prefix && host.endsWith(prefix)) return host + path.slice(prefix.length);
+  return host + path;
+}
+
 /**
  * Core System One (Jev) handler — native decision payload pass-through.
  * URL/headers come from the registry's systemoneConfig; body and JSON response
@@ -22,7 +41,7 @@ export async function handleSystemoneCore({
 }) {
   const { provider, model } = modelInfo;
   const cfg = PROVIDER_MEDIA[provider]?.systemoneConfig;
-  let targetUrl = credentials?.providerSpecificData?.baseUrl || cfg?.baseUrl;
+  let targetUrl = buildSystemoneUrl(credentials?.providerSpecificData?.baseUrl, cfg);
   if (!targetUrl) {
     return createErrorResult(
       HTTP_STATUS.BAD_REQUEST,
@@ -58,8 +77,8 @@ export async function handleSystemoneCore({
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(cfg?.headers || {}),
-    // Zen lanes expect the official client session header on every request.
-    "x-opencode-session": generateSessionId(),
+    // Zen lanes expect the official client session header; other providers don't need it.
+    ...(OPENCODE_PROVIDERS.has(provider) ? { "x-opencode-session": generateSessionId() } : {}),
   };
   // Cloudflare validates the body model as a short selector (e.g. "clef-flash"), not the full id.
   const requestBody = { ...body, model: getModelUpstreamId(provider, model) || model };
@@ -67,17 +86,19 @@ export async function handleSystemoneCore({
   log?.debug?.("SYSTEMONE", `${provider.toUpperCase()} | ${model}`);
 
   const effectiveProxy = proxyOptions || credentials?.providerSpecificData || null;
+  const hasExplicitProxy = proxyOptions || credentials?.providerSpecificData?.connectionProxyUrl || credentials?.providerSpecificData?.proxyPoolId;
+  const fetchFn = hasExplicitProxy ? (u, o) => proxyAwareFetch(u, o, effectiveProxy) : fetch;
 
   let providerResponse;
   try {
-    providerResponse = await proxyAwareFetch(targetUrl, {
+    providerResponse = await fetchFn(targetUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(requestBody),
       ...(typeof AbortSignal?.timeout === "function"
         ? { signal: AbortSignal.timeout(FETCH_CONNECT_TIMEOUT_MS) }
         : {}),
-    }, effectiveProxy);
+    });
   } catch (error) {
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     log?.debug?.("SYSTEMONE", `Fetch error: ${errMsg}`);

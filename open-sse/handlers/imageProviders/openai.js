@@ -34,7 +34,18 @@ export default function createOpenAIAdapter(providerId) {
       return headers;
     },
     buildBody: (model, body) => {
-      const { prompt, n = 1, size = "1024x1024", quality, style, response_format, background, output_format, seed, user } = body;
+      const {
+        prompt,
+        n = 1,
+        size = "1024x1024",
+        quality,
+        style,
+        response_format,
+        background,
+        output_format,
+        seed,
+        user,
+      } = body;
       const full = { model, prompt, n, size };
       if (quality) full.quality = quality;
       if (style) full.style = style;
@@ -43,6 +54,12 @@ export default function createOpenAIAdapter(providerId) {
       if (output_format) full.output_format = output_format;
       if (seed !== undefined) full.seed = seed;
       if (user) full.user = user;
+
+      for (const field of ["watermark", "prompt_extend"]) {
+        if (body[field] !== undefined) {
+          full[field] = body[field];
+        }
+      }
 
       // Extract reference images for image-to-image (img2img)
       const inputImages = extractInputImages(body);
