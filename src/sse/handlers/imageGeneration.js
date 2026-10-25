@@ -15,6 +15,7 @@ import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { handleComboChat } from "open-sse/services/combo.js";
 import { saveRequestUsage, saveRequestDetail, appendRequestLog } from "@/lib/usageDb.js";
+import { saveBase64Image } from "@/lib/mediaStorage.js";
 import * as log from "../utils/logger.js";
 
 // Providers that don't require credentials (noAuth)
@@ -105,6 +106,89 @@ function recordUsageAndDetail({
  * Handle image generation request
  * @param {Request} request
  */
+
+
+function getPublicBaseUrl(request) {
+  const configured =
+    process.env.BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.CLOUD_URL ||
+    process.env.NEXT_PUBLIC_CLOUD_URL ||
+    "";
+
+  if (configured) {
+    return configured.trim().replace(/\/+$/, "");
+  }
+
+  try {
+    const url = new URL(request.url);
+    const proto = request.headers.get("x-forwarded-proto") || url.protocol.replace(":", "") || "http";
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    return `${proto}://${host}`;
+  } catch {
+    return "";
+  }
+}
+
+async function persistImagesForResponse(result, formatHint, baseUrl = "") {
+  if (!result?.finalBody || !Array.isArray(result.finalBody.data)) {
+    return {
+      clientResponse: result?.response,
+      detailResponse: result?.finalBody || {},
+    };
+  }
+
+  const finalBody = result.finalBody;
+  const detailData = [];
+  const clientData = [];
+  let mutated = false;
+
+  for (let i = 0; i < finalBody.data.length; i++) {
+    const item = finalBody.data[i];
+    const clientItem = { ...item };
+    const detailItem = { ...item };
+
+    if (typeof item?.b64_json === "string" && item.b64_json.length > 100) {
+      try {
+        const saved = await saveBase64Image({
+          b64: item.b64_json,
+          format: finalBody.output_format || formatHint,
+          generationId: item.generation_id,
+        });
+
+        // Enrich client item if url is not present (provide full absolute url if baseUrl exists)
+        if (!clientItem.url) {
+          const absoluteUrl = baseUrl ? `${baseUrl}${saved.relativeUrl}` : saved.relativeUrl;
+          clientItem.url = absoluteUrl;
+          mutated = true;
+        }
+
+        // For observability detail: avoid storing huge base64 in SQLite
+        detailItem.url = saved.relativeUrl;
+        detailItem.b64_json = `[Saved to ${saved.relativeUrl}]`;
+      } catch (err) {
+        log.warn("IMAGE", `Failed to save image to disk: ${err?.message || err}`);
+      }
+    }
+
+    clientData.push(clientItem);
+    detailData.push(detailItem);
+  }
+
+  const detailBody = { ...finalBody, data: detailData };
+
+  let clientResponse = result.response;
+  if (mutated && result.response && result.response.headers?.get("content-type")?.includes("application/json")) {
+    const newClientBody = { ...finalBody, data: clientData };
+    clientResponse = new Response(JSON.stringify(newClientBody), {
+      status: result.response.status,
+      headers: result.response.headers,
+    });
+  }
+
+  return { clientResponse, detailBody };
+}
+
 export async function handleImageGeneration(request) {
   let body;
   try {
@@ -119,6 +203,7 @@ export async function handleImageGeneration(request) {
   const binaryOutput = url.searchParams.get("response_format") === "binary";
   const modelStr = body.model;
   const endpoint = url.pathname || "/v1/images/generations";
+  const baseUrl = getPublicBaseUrl(request);
 
   const apiKey = extractApiKey(request);
   const settings = await getSettings();
@@ -152,6 +237,7 @@ export async function handleImageGeneration(request) {
           preferredConnectionId,
           apiKey,
           endpoint,
+          baseUrl,
         }),
       log,
       comboName: modelStr,
@@ -167,13 +253,14 @@ export async function handleImageGeneration(request) {
     preferredConnectionId,
     apiKey,
     endpoint,
+    baseUrl,
   });
 }
 
 async function handleSingleModelImage(
   body,
   modelStr,
-  { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint } = {}
+  { wantsStream, binaryOutput, preferredConnectionId, apiKey, endpoint, baseUrl } = {}
 ) {
   const reqStartTime = Date.now();
   const modelInfo = await getModelInfo(modelStr);
@@ -192,6 +279,11 @@ async function handleSingleModelImage(
     });
     const latencyMs = Date.now() - reqStartTime;
     if (result.success) {
+      const { clientResponse, detailBody } = await persistImagesForResponse(
+        result,
+        body.output_format,
+        baseUrl
+      );
       recordUsageAndDetail({
         provider,
         model: recordedModelName,
@@ -201,12 +293,12 @@ async function handleSingleModelImage(
         status: "success",
         latencyMs,
         requestBody: body,
-        responseData: result.finalBody || {},
+        responseData: detailBody,
         providerRequest: result.providerRequest,
         providerResponse: result.providerResponse,
         usageRecorded: false,
       });
-      return result.response;
+      return clientResponse;
     }
     recordUsageAndDetail({
       provider,
@@ -312,6 +404,11 @@ async function handleSingleModelImage(
     const latencyMs = Date.now() - reqStartTime;
 
     if (result.success) {
+      const { clientResponse, detailBody } = await persistImagesForResponse(
+        result,
+        body.output_format,
+        baseUrl
+      );
       recordUsageAndDetail({
         provider,
         model: recordedModelName,
@@ -321,12 +418,12 @@ async function handleSingleModelImage(
         status: "success",
         latencyMs,
         requestBody: body,
-        responseData: result.finalBody || {},
+        responseData: detailBody,
         providerRequest: result.providerRequest,
         providerResponse: result.providerResponse,
         usageRecorded,
       });
-      return result.response;
+      return clientResponse;
     }
 
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model);

@@ -545,17 +545,47 @@ export default function RequestDetailsTab() {
                 <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
                   Content
                 </h4>
-                {selectedDetail.response?.data?.[0] && (
-                  <div className="mb-3">
-                    <img
-                      src={selectedDetail.response.data[0].url || (selectedDetail.response.data[0].b64_json ? `data:image/png;base64,${selectedDetail.response.data[0].b64_json}` : "")}
-                      alt="Generated output"
-                      className="max-h-48 rounded-lg border border-border object-contain bg-sidebar"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                )}
+                {selectedDetail.response?.data?.[0] && (() => {
+                  const item = selectedDetail.response.data[0];
+                  const rawB64 = typeof item.b64_json === "string" ? item.b64_json : "";
+                  const isTruncated = rawB64.includes("[Base64 Image truncated") || rawB64.startsWith("[Saved to");
+                  const imgSrc = item.url || (!isTruncated && rawB64 ? `data:image/png;base64,${rawB64}` : null);
+
+                  if (imgSrc) {
+                    return (
+                      <div className="mb-4 flex flex-col items-start gap-2">
+                        <img
+                          src={imgSrc}
+                          alt="Generated output"
+                          className="max-h-64 max-w-full rounded-lg border border-border object-contain bg-sidebar shadow-xs"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <a
+                          href={imgSrc}
+                          download={`image-${selectedDetail.id || "output"}.png`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-black/5 hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15 text-text-main transition-colors border border-black/10 dark:border-white/10"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">download</span>
+                          下载原图
+                        </a>
+                      </div>
+                    );
+                  }
+
+                  if (isTruncated && rawB64.includes("[Base64 Image truncated")) {
+                    return (
+                      <div className="mb-3 p-3 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[18px]">info</span>
+                        历史图片数据过大（已截断未持久化），无法在此预览
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
                 <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
                   {selectedDetail.response?.content || (typeof selectedDetail.response === "object" ? JSON.stringify(selectedDetail.response, null, 2) : selectedDetail.response) || "[No content]"}
                 </pre>

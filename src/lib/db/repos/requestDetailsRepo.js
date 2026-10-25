@@ -73,7 +73,11 @@ function maskB64InDetail(obj) {
   if (Array.isArray(obj)) return obj.map(maskB64InDetail);
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (typeof v === "string" && (k === "b64_json" || (v.startsWith("data:image/") && v.length > 100))) {
+    if (
+      typeof v === "string" &&
+      ((k === "b64_json" && v.length > 100 && !v.startsWith("[Saved to")) ||
+        (v.startsWith("data:image/") && v.length > 100))
+    ) {
       out[k] = `${v.slice(0, 50)}... [Base64 Image truncated, length: ${v.length}]`;
     } else if (typeof v === "string" && k === "data" && v.length > 200 && /^[A-Za-z0-9+/=]+$/.test(v)) {
       out[k] = `${v.slice(0, 50)}... [Base64 Data truncated, length: ${v.length}]`;

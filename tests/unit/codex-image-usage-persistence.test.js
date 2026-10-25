@@ -56,6 +56,8 @@ vi.mock("../../src/sse/utils/logger.js", () => ({
 
 vi.mock("@/lib/usageDb.js", () => ({
   saveRequestUsage: mocks.saveRequestUsage,
+  saveRequestDetail: vi.fn().mockResolvedValue(undefined),
+  appendRequestLog: vi.fn(),
 }));
 
 import { handleImageGeneration } from "../../src/sse/handlers/imageGeneration.js";
