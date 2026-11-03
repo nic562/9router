@@ -58,11 +58,24 @@ http.createServer = (...args) => {
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
     const viaProxy = !!(xff || xRealIp);
-    const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
-    // Trust forwarding headers only when the TCP peer is a local reverse proxy.
+
+    // Normalize IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1 -> 127.0.0.1)
+    let cleanSocketIp = String(socketIp || "").toLowerCase().trim();
+    if (cleanSocketIp.startsWith("::ffff:")) cleanSocketIp = cleanSocketIp.slice(7);
+
+    const isLoopbackProxy = cleanSocketIp === "127.0.0.1" || cleanSocketIp === "::1";
+    // When TRUST_PROXY=true (reverse proxy / Docker deployment), also trust private RFC1918 gateway peers
+    const isPrivateProxy = process.env.TRUST_PROXY === "true" && (
+      /^10\.\d+\.\d+\.\d+$/.test(cleanSocketIp) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+$/.test(cleanSocketIp) ||
+      /^192\.168\.\d+\.\d+$/.test(cleanSocketIp)
+    );
+    const isTrustedProxy = isLoopbackProxy || isPrivateProxy;
+
+    // Trust forwarding headers only when the TCP peer is a trusted local or private reverse proxy.
     // Direct/public sockets remain keyed by the unspoofable peer address.
     const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
-    const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
+    const ip = isTrustedProxy && proxyIp ? proxyIp : socketIp;
     delete req.headers["x-9r-real-ip"];
     delete req.headers["x-forwarded-for"];
     delete req.headers["x-9r-via-proxy"];
