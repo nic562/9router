@@ -31,6 +31,7 @@ const ADAPTERS = {
   "agnes-ai": agnesAi,
   xai: createOpenAIAdapter("xai"),
   sensenova: createOpenAIAdapter("sensenova"),
+  "sensenova-intl": createOpenAIAdapter("sensenova-intl"),
   gemini,
   codex,
   sdwebui,

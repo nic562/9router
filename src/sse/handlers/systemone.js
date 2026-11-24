@@ -5,11 +5,12 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../services/auth.js";
-import { getSettings } from "@/lib/localDb";
+import { getSettings, getCustomModels } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { getKeyAccessContext, enforceKeyAccess } from "../services/keyAccess.js";
-import { handleSystemoneCore } from "open-sse/handlers/systemoneCore.js";
+import { handleSystemoneCore, validateSystemonePayload } from "open-sse/handlers/systemoneCore.js";
 import { handleComboChat } from "open-sse/services/combo.js";
+import REGISTRY from "open-sse/providers/registry/index.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import * as log from "../utils/logger.js";
@@ -28,6 +29,25 @@ async function handleSingleModelSystemone(body, modelStr, { apiKey, endpoint }) 
 
   const { provider, model } = modelInfo;
 
+  // Resolve optional custom-model upstreamModelId (e.g. Cloudflare decision models registered via /api/models/custom).
+  let customUpstreamModelId = null;
+  try {
+    const entry = REGISTRY.find((r) => r.id === provider || r.alias === provider);
+    const acceptedAliases = new Set([provider, entry?.id, entry?.alias, entry?.uiAlias, ...(entry?.aliases || [])].filter(Boolean));
+    const customModels = await getCustomModels();
+    const hit = customModels.find(
+      (c) => c && c.type === "systemone" && acceptedAliases.has(c.providerAlias) && c.id === model
+        && typeof c.upstreamModelId === "string" && c.upstreamModelId.trim()
+    );
+    if (hit) customUpstreamModelId = hit.upstreamModelId.trim();
+  } catch {
+    // DB unreadable: fall back to static registry metadata
+  }
+
+  const payloadError = validateSystemonePayload(body, provider, model);
+  if (payloadError) {
+    return errorResponse(HTTP_STATUS.BAD_REQUEST, payloadError);
+  }
   if (modelStr !== `${provider}/${model}`) {
     log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
   } else {
@@ -64,7 +84,7 @@ async function handleSingleModelSystemone(body, modelStr, { apiKey, endpoint }) 
 
     const result = await handleSystemoneCore({
       body,
-      modelInfo: { provider, model },
+      modelInfo: { provider, model, ...(customUpstreamModelId ? { upstreamModelId: customUpstreamModelId } : {}) },
       credentials: refreshedCredentials,
       log,
       proxyOptions: refreshedCredentials?.providerSpecificData || null,
@@ -154,9 +174,6 @@ export async function handleSystemone(request) {
   }
   if (body.state === undefined || body.state === null) {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: state");
-  }
-  if (!body.questions || typeof body.questions !== "object" || Array.isArray(body.questions)) {
-    return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: questions");
   }
 
   // Per-key access control: checked before combo expansion or credential lookup.
