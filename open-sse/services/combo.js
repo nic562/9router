@@ -367,6 +367,14 @@ export async function handleComboChat({
   resolveSmartChoice = null,
   signal = null,
 }) {
+  if (signal?.aborted) {
+    log.warn("COMBO", `Client disconnected before combo start (${signal.reason || "aborted"})`);
+    return new Response(
+      JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+      { status: 499, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   let rotatedModels = models;
   let activeStickyModel = null;
 
@@ -483,6 +491,17 @@ export async function handleComboChat({
 
     try {
       const result = await handleSingleModel(body, modelStr);
+
+      // If client disconnected during the model execution, or model returned 499 (Client Closed Request),
+      // stop fallback immediately. Do not attempt subsequent combo models.
+      if (signal?.aborted || result.status === 499) {
+        log.warn("COMBO", `Client disconnected (status ${result.status}), terminating combo fallback`);
+        if (result.status === 499) return result;
+        return new Response(
+          JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+          { status: 499, headers: { "Content-Type": "application/json" } }
+        );
+      }
       
       // Success (2xx). A 2xx is necessary but NOT sufficient: Gemini aborts (e.g.
       // MALFORMED_FUNCTION_CALL) still return 200 and stream empty content, which would
@@ -614,7 +633,29 @@ export async function handleComboChat({
       if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
           (result.status === 503 || result.status === 502 || result.status === 504)) {
         log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
-        await new Promise(r => setTimeout(r, cooldownMs));
+        await new Promise((resolve) => {
+          let onAbort = null;
+          const timer = setTimeout(() => {
+            if (onAbort && signal?.removeEventListener) {
+              signal.removeEventListener("abort", onAbort);
+            }
+            resolve();
+          }, cooldownMs);
+
+          onAbort = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+
+          signal?.addEventListener?.("abort", onAbort, { once: true });
+        });
+        if (signal?.aborted) {
+          log.warn("COMBO", "Client disconnected during cooldown, terminating combo fallback");
+          return new Response(
+            JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+            { status: 499, headers: { "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // Fallback to next model
@@ -833,7 +874,13 @@ function collectPanel(calls, { minPanel, stragglerGraceMs, panelHardTimeoutMs })
  * @param {Object} [options.tuning] - Override FUSION_DEFAULTS (minPanel, grace, timeout)
  * @returns {Promise<Response>}
  */
-export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning }) {
+export async function handleFusionChat({ body, models, handleSingleModel, log, comboName, judgeModel, tuning, signal = null }) {
+  if (signal?.aborted) {
+    return new Response(
+      JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+      { status: 499, headers: { "Content-Type": "application/json" } }
+    );
+  }
   const panel = Array.isArray(models) ? models.filter(Boolean) : [];
   if (panel.length === 0) {
     return new Response(
@@ -870,6 +917,14 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
   const calls = panel.map((m) => withTimeout(handleSingleModel(panelBody, m, true), cfg.panelHardTimeoutMs));
   const settled = await collectPanel(calls, { ...cfg, minPanel });
   log.info("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
+
+  if (signal?.aborted) {
+    log.warn("FUSION", `Client disconnected after panel collection (${signal.reason || "aborted"}), skipping judge`);
+    return new Response(
+      JSON.stringify({ error: { message: "Client disconnected", type: "invalid_request_error", code: "client_closed_request" } }),
+      { status: 499, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // 2. Collect successful answers.
   const answers = [];

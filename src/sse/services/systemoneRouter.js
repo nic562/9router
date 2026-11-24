@@ -102,9 +102,13 @@ export async function resolveSmartChoice({
       },
     };
 
+    const timeoutCtrl = new AbortController();
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(`System One router timed out after ${timeoutMs}ms`)), timeoutMs);
+      timeoutId = setTimeout(() => {
+        timeoutCtrl.abort();
+        reject(new Error(`System One router timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
     });
 
     const evalPromise = (async () => {
@@ -124,6 +128,7 @@ export async function resolveSmartChoice({
           comboName: targetModel,
           comboStrategy,
           comboStickyLimit,
+          signal: timeoutCtrl.signal,
         });
       }
 

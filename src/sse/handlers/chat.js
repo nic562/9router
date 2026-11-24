@@ -143,6 +143,7 @@ export async function handleChat(request, clientRawRequest = null) {
         comboName: modelStr,
         judgeModel: comboStrategies[modelStr]?.judgeModel,
         tuning: comboStrategies[modelStr]?.fusionTuning,
+        signal: request?.signal,
       });
     }
 
@@ -238,6 +239,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
           comboName: modelStr,
           judgeModel: comboStrategies[modelStr]?.judgeModel,
           tuning: comboStrategies[modelStr]?.fusionTuning,
+          signal: request?.signal,
         });
       }
 
@@ -290,6 +292,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let lastHeaders = null;
 
   while (true) {
+    if (request?.signal?.aborted) {
+      log.warn("CHAT", "Client disconnected, terminating account fallback");
+      return errorResponse(499, "Client closed request");
+    }
     const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, {
       kind: "llm",
       requestedModel: requestedModel || model,
@@ -395,6 +401,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
+      if (request?.signal?.aborted || result.status === 499) {
+        log.warn("CHAT", "Client disconnected, stopping account fallback");
+        return result.response;
+      }
       log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;

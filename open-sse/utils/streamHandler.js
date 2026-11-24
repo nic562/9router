@@ -45,10 +45,14 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       // socket on every completed request. "📊 done" is the authoritative outcome line.
       dbg("CTRL", `${provider}/${model} | disconnect=${reason} | dur=${Date.now() - startTime}ms`);
 
-      // Delay abort to allow cleanup
-      abortTimeout = setTimeout(() => {
+      // Abort immediately on client abort; delay briefly for passive cleanup
+      if (reason === "client_aborted") {
         abortController.abort();
-      }, 500);
+      } else {
+        abortTimeout = setTimeout(() => {
+          abortController.abort();
+        }, 500);
+      }
 
       onDisconnect?.({ reason, duration: Date.now() - startTime });
     },
